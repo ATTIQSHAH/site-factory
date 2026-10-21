@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spoons Cafe | Demo Website</title>
+    
+    <!-- Fonts: Playfair Display for headings, Lora for body -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Lora:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ============ RESET & VARIABLES ============ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --espresso: #2d1b0f;
+            --espresso-light: #4a3228;
+            --cream: #f7f3ec;
+            --warm-cream: #e8ddcc;
+            --gold: #c5a059;
+            --gold-dark: #a8823e;
+            --ink: #1a1510;
+            --muted: #6b5b4a;
+            --white: #ffffff;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Lora', serif;
+            color: var(--ink);
+            background-color: var(--cream);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ============ BUTTONS (Solid, No Transparency) ============ */
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            font-family: 'Playfair Display', serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+            transition: var(--transition);
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: var(--espresso);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--espresso-light);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--espresso);
+            border: 2px solid var(--espresso);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--espresso);
+            color: var(--white);
+            transform: translateY(-2px);
+        }
+
+        .btn-gold {
+            background-color: var(--gold);
+            color: var(--espresso);
+        }
+
+        .btn-gold:hover {
+            background-color: var(--gold-dark);
+            color: var(--white);
+            transform: translateY(-2px);
+        }
+
+        /* ============ HEADER ============ */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background-color: rgba(247, 243, 236, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(45, 27, 15, 0.08);
+            transition: var(--transition);
+        }
+
+        header.scrolled {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .nav-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 18px 24px;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--espresso);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+            z-index: 1001;
+            position: relative;
+        }
+
+        .logo span {
+            color: var(--gold);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            font-family: 'Lora', serif;
+            font-size: 0.95rem;
+            color: var(--muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover {
+            color: var(--espresso);
+        }
+
+        .nav-cta {
+            margin-left: 24px;
+        }
+
+        /* Mobile menu toggle */
+        .mobile-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+
+        .mobile-toggle span {
+            width: 26px;
+            height: 2px;
+            background-color: var(--espresso);
+            transition: var(--transition);
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            position: relative;
+            height: 100vh;
+            min-height: 700px;
+            background-image: url('https://images.unsplash.com/photo-1510707585783-cc07b03e676e?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center 40%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 5%;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(45, 27, 15, 0.45), rgba(45, 27, 15, 0.25));
+            z-index: 1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 620px;
+            color: var(--white);
+        }
+
+        .hero-badge {
+            display: inline-block;
+            font-family: 'Playfair Display', serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--gold);
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(197, 160, 89, 0.4);
+            padding-bottom: 6px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            margin-bottom: 32px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* ============ SECTION HEADINGS ============ */
+        section {
+            padding: 100px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 70px;
+        }
+
+        .section-header .eyebrow {
+            font-family: 'Playfair Display', serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--gold);
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .section-header h2 {
+            font-size: clamp(2rem, 3vw, 2.75rem);
+            color: var(--espresso);
+            margin-bottom: 18px;
+        }
+
+        .section-header p {
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.05rem;
+        }
+
+        .divider {
+            width: 56px;
+            height: 2px;
+            background-color: var(--gold);
+            margin: 20px auto 0;
+        }
+
+        /* ============ ABOUT / HERITAGE ============ */
+        .heritage {
+            background-color: var(--cream);
+        }
+
+        .heritage-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .heritage-text h3 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .heritage-text p {
+            color: var(--muted);
+            margin-bottom: 24px;
+            font-size: 1.05rem;
+        }
+
+        .heritage-text ul {
+            list-style: none;
+        }
+
+        .heritage-text li {
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            color: var(--ink);
+            padding-left: 28px;
+            position: relative;
+        }
+
+        .heritage-text li::before {
+            content: '▹';
+            color: var(--gold);
+            position: absolute;
+            left: 0;
+            top: 1px;
+            font-size: 1rem;
+        }
+
+        .heritage-img {
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .heritage-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: var(--transition);
+        }
+
+        .heritage-img:hover img {
+            transform: scale(1.03);
+        }
+
+        /* ============ MENU ============ */
+        .menu {
+            background-color: var(--white);
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 32px;
+        }
+
+        .menu-card {
+            background: var(--white);
+            border: 1px solid rgba(45, 27, 15, 0.06);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .menu-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-hover);
+            border-color: rgba(45, 27, 15, 0.02);
+        }
+
+        .menu-img {
+            height: 260px;
+            overflow: hidden;
+        }
+
+        .menu-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: var(--transition);
+        }
+
+        .menu-card:hover .menu-img img {
+            transform: scale(1.05);
+        }
+
+        .menu-body {
+            padding: 24px;
+        }
+
+        .menu-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--gold);
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .menu-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 10px;
+            color: var(--espresso);
+        }
+
+        .menu-card p {
+            font-size: 0.95rem;
+            color: var(--muted);
+            margin-bottom: 18px;
+            line-height: 1.5;
+        }
+
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .price {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--espresso);
+        }
+
+        /* ============ FEATURES ============ */
+        .features {
+            background-color: var(--espresso);
+            color: var(--cream);
+        }
+
+        .features .section-header h2,
+        .features .section-header p,
+        .features .section-header .eyebrow {
+            color: var(--cream);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 32px;
+            text-align: center;
+        }
+
+        .feature-item {
+            padding: 32px 20px;
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: rgba(197, 160, 89, 0.15);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: var(--gold);
+            font-size: 1.5rem;
+        }
+
+        .feature-item h4 {
+            font-size: 1.15rem;
+            margin-bottom: 10px;
+            color: var(--cream);
+        }
+
+        .feature-item p {
+            font-size: 0.9rem;
+            color: rgba(247, 243, 236, 0.75);
+            line-height: 1.6;
+        }
+
+        /* ============ CONTACT ============ */
+        .contact {
+            background-color: var(--cream);
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: flex-start;
+        }
+
+        .contact-info h3 {
+            font-size: 2rem;
+            margin-bottom: 24px;
+        }
+
+        .contact-info p {
+            color: var(--muted);
+            margin-bottom: 32px;
+            font-size: 1.05rem;
+        }
+
+        .contact-details {
+            list-style: none;
+        }
+
+        .contact-details li {
+            margin-bottom: 20px;
+            font-size: 1rem;
+            color: var(--ink);
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .contact-details strong {
+            min-width: 90px;
+            color: var(--espresso);
+            font-weight: 700;
+        }
+
+        .contact-form {
+            background: var(--white);
+            padding: 40px;
+            border-radius: 4px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(45, 27, 15, 0.05);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            font-family: 'Lora', serif;
+            font-size: 0.95rem;
+            color: var(--ink);
+            background-color: var(--cream);
+            border: 1px solid rgba(45, 27, 15, 0.08);
+            border-radius: 0;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            background-color: var(--white);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* ============ FOOTER ============ */
+        footer {
+            background-color: var(--espresso);
+            color: var(--cream);
+            padding: 70px 0 40px;
+            border-top: 1px solid rgba(197, 160, 89, 0.1);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            margin-bottom: 50px;
+        }
+
+        .footer-col h4 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: var(--white);
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col ul li {
+            margin-bottom: 12px;
+        }
+
+        .footer-col ul li a {
+            color: rgba(247, 243, 236, 0.65);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .footer-col ul li a:hover {
+            color: var(--gold);
+            padding-left: 6px;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(197, 160, 89, 0.1);
+            font-size: 0.85rem;
+            color: rgba(247, 243, 236, 0.5);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        .social-links a {
+            color: rgba(247, 243, 236, 0.65);
+            font-size: 1.1rem;
+            transition: var(--transition);
+        }
+
+        .social-links a:hover {
+            color: var(--gold);
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 992px) {
+            .hero {
+                justify-content: center;
+                text-align: center;
+                padding: 0 20px;
+            }
+
+            .hero-content {
+                max-width: 100%;
+            }
+
+            .heritage-grid,
+            .contact-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                background-color: var(--cream);
+                padding: 24px;
+                border-bottom: 1px solid rgba(45, 27, 15, 0.08);
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
+            .nav-links li {
+                margin-bottom: 16px;
+            }
+
+            .nav-cta {
+                margin-left: 0;
+                margin-top: 20px;
+            }
+
+            .mobile-toggle {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+            .hero-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn {
+                width: 100%;
+                max-width: 280px;
+            }
+        }
+    </style>
+<meta name="robots" content="noindex,nofollow"><style>
+header{background:#fff!important;backdrop-filter:none!important}
+.logo,.nav-links a{color:#1d1d1d!important}.logo span{color:#1d1d1d!important}
+.btn-outline{background:#fff!important;color:#1d1d1d!important;border:2px solid #1d1d1d!important}
+.btn-outline:hover{background:#1d1d1d!important;color:#fff!important}
+.hero .btn-outline{border-color:#fff!important}
+.menu-img img{width:100%;height:100%;object-fit:cover}.menu-img{background:#d9d2c5}
+.hero{background-color:#222!important;box-shadow:inset 0 0 0 3000px rgba(0,0,0,.55)!important}.hero::before,.hero::after{display:none!important}
+.hero h1,.hero p{color:#fff!important}.hero-badge{background:#fff!important;color:#1d1d1d!important;border:none!important;padding:6px 14px;display:inline-block}
+.contact-details a{color:#1d1d1d!important;text-decoration:underline}
+.demo-bar{position:fixed;left:0;right:0;bottom:0;background:#111;color:#fff;padding:9px 14px;text-align:center;font:14px/1.3 sans-serif;z-index:3000}
+body{padding-bottom:40px}.cbtn{margin:6px 8px 0 0;padding:12px 24px!important;font-size:.95rem!important;display:inline-block}
+</style>
+</head>
+<body><header id="mainHeader"><div class="nav-wrapper"><a href="#home" class="logo">Spoons Cafe</a><ul class="nav-links" id="navLinks"><li><a href="#home">Home</a></li><li><a href="#about">About</a></li><li><a href="#menu">Menu</a></li><li><a href="#contact">Contact</a></li></ul><a href="#contact" class="btn btn-outline nav-cta">Contact</a><div class="mobile-toggle" id="mobileToggle"><span></span><span></span><span></span></div></div></header><section class="hero" id="home"><div class="hero-content"><div class="hero-badge">Coffee & Café</div><h1>Welcome to Spoons Cafe</h1><p>A warm place for great coffee, fresh bakes and good company.</p><div class="hero-actions"><a href="#menu" class="btn btn-primary">View Menu</a><a href="#contact" class="btn btn-outline">Get in Touch</a></div></div></section><section class="heritage" id="about"><div class="container"><div class="section-header"><span class="eyebrow">About Us</span><h2>Our Story</h2></div><div class="heritage-grid"><div class="heritage-text"><h3>Spoons Cafe</h3><p>A local favourite, ready to welcome you.</p><a href="#contact" class="btn btn-outline" style="margin-top:24px;">Contact Us</a></div><div class="heritage-img"><img src="https://images.unsplash.com/photo-1447933601403-0c666c7d248c?q=80&amp;w=1200&amp;auto=format&amp;fit=crop" alt="Spoons Cafe" onerror="this.style.display='none'"></div></div></div></section><section class="menu" id="menu"><div class="container"><div class="section-header"><span class="eyebrow">Menu</span><h2>Menu Highlights</h2></div><div class="menu-grid"><div class="menu-card"><div class="menu-body"><h3>Coffee & Espresso</h3><p>Ask us about today's selection.</p></div></div><div class="menu-card"><div class="menu-body"><h3>Tea & Cold Drinks</h3><p>Ask us about today's selection.</p></div></div><div class="menu-card"><div class="menu-body"><h3>Fresh Bakes</h3><p>Ask us about today's selection.</p></div></div></div></div></section><section class="contact" id="contact"><div class="container"><div class="contact-grid"><div class="contact-info"><h3>Visit & Contact</h3><p>Call, email or message Spoons Cafe directly.</p><ul class="contact-details"><li><strong>Phone</strong><span><a href="tel:9725486900">(972) 548-6900</a></span></li><li><strong>Email</strong><span><a href="mailto:info@spoonscafe.com">info@spoonscafe.com</a></span></li><li><strong>Website</strong><span><a href="http://www.spoonscafe.com/">www.spoonscafe.com</a></span></li></ul></div><div class="contact-form"><h3 style="margin-bottom:18px">Reach Us</h3><a href="tel:9725486900" class="btn btn-primary cbtn" target="_blank" rel="noopener">Call Now</a><a href="mailto:info@spoonscafe.com" class="btn btn-gold cbtn" target="_blank" rel="noopener">Email Us</a><a href="https://www.instagram.com/spoonscafemckinney/" class="btn btn-gold cbtn" target="_blank" rel="noopener">Instagram</a><a href="https://www.facebook.com/spoonscafemckinney/" class="btn btn-gold cbtn" target="_blank" rel="noopener">Facebook</a></div></div></div></section><footer><div class="container"><div class="copyright footer-bottom">&copy; 2026 Spoons Cafe. All rights reserved.</div></div></footer><div class="demo-bar">Demo website concept for Spoons Cafe, prepared by Solvexa</div><script>var t=document.getElementById('mobileToggle'),l=document.getElementById('navLinks');t.onclick=function(){if(l.style.display==='flex'){l.style.display='none'}else{l.style.cssText='display:flex;flex-direction:column;position:absolute;top:70px;left:0;width:100%;background:#fff;padding:24px;z-index:1500'}}</script></body></html>
