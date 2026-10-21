@@ -76,6 +76,8 @@ def audit(url, html):
 def main(src):
     rows = list(csv.DictReader(open(src, encoding="utf-8-sig"))); done = {}
     if os.path.exists(RES): done = {r["Website"]: r for r in csv.DictReader(open(RES, encoding="utf-8"))}
+    for r in done.values(): r["batch"] = r.get("batch") or "1"
+    n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch_rows = []
     new = [r for r in rows if r.get("Website") and r["Website"] not in done][:MAXN]; os.makedirs(OUT, exist_ok=True); used = {r["site_path"] for r in done.values()}
     for r in new:
         res = dict(r); u = r["Website"].strip()
@@ -91,8 +93,14 @@ def main(src):
                         "logo_found": bool(d["logo"]), "menu_found": len(d["menu"]) >= 3, "menu_pdf_only": d["menu_pdf"] and len(d["menu"]) < 3, "address_found": bool(d["address"]), "photos_found": len(d["photos"]),
                         "qa_flag": "check: no logo/photos" if not d["logo"] and not d["photos"] else ("check: no menu" if len(d["menu"]) < 3 else "ok")})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
-        res.update({"review_status": "pending", "email_status": ""}); done[u] = res; time.sleep(2); print(res.get("Name", u), res["fetch_status"])
+        res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[u] = res; batch_rows.append(res); time.sleep(2); print(res.get("Name", u), res["fetch_status"])
     allr = list(done.values()); cols = list(dict.fromkeys(c for r in allr for c in r)); os.makedirs(os.path.dirname(RES) or ".", exist_ok=True)
     with open(RES, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=cols, restval=""); w.writeheader(); w.writerows(allr)
+    d = os.path.dirname(RES) or "."
+    for b in sorted({r["batch"] for r in allr}, key=int):
+        p = f"{d}/batch_{b}.csv"
+        if not os.path.exists(p) or (batch_rows and int(b) == n_b):
+            with open(p, "w", newline="", encoding="utf-8") as fh:
+                w = csv.DictWriter(fh, fieldnames=cols, restval=""); w.writeheader(); w.writerows([r for r in allr if r["batch"] == b])
 if __name__ == "__main__": main(sys.argv[1])
