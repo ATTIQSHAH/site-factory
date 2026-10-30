@@ -32,7 +32,16 @@ def build3(d):
     n, tel = E(d["name"]), re.sub(r"[^0-9+]", "", d["phone"] or "")
     tel = ("+1" + tel) if tel and not tel.startswith("+") and len(tel) == 10 else tel
     q = up.quote(d["address"] or d["name"]); dirn = f"https://www.google.com/maps/search/?api=1&query={q}"
-    ab = re.sub(r"[\s.\u2026]*(\.\.\.|\u2026)\s*$", "", (d.get("about") or "").strip()).strip()
+    raw = (d.get("about") or "").strip(); trunc = bool(re.search(r"(\.\.\.|\u2026)\s*$", raw)) or (len(raw) >= 140 and raw[-1:] not in ".!?")
+    ab = re.sub(r"[\s.\u2026]*(\.\.\.|\u2026)\s*$", "", raw).strip()
+    if ab and ab[-1] not in ".!?" and trunc:
+        cut = max(ab.rfind(". "), ab.rfind("! "), ab.rfind("? "))
+        if cut >= 60: ab = ab[:cut + 1]
+        else:
+            w = ab.split()
+            if len(w) > 6 and not raw.endswith(("...", "\u2026")): w = w[:-1]
+            while len(w) > 6 and w[-1].lower().strip(",") in {"and", "with", "or", "of", "the", "a", "an", "to", "in", "for", "by", "as", "&", "at", "on"}: w = w[:-1]
+            ab = " ".join(w).rstrip(" ,;:-") + "."
     m = re.match(r"(.{40,150}?[.!?])(\s|$)", ab); short = m.group(1) if m else (ab if len(ab) <= 150 else ab[:150].rsplit(" ", 1)[0])
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""

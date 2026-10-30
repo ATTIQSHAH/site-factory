@@ -2,7 +2,9 @@
 import csv, os, re, sys, time
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-import media
+import media, artdir
+from collections import Counter
+USED = Counter()
 from common import get, ld, audit, ai_about, slug
 from render3 import build3, niche
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
@@ -14,10 +16,10 @@ def menu_text(h):
     for t in s(["script", "style", "nav", "footer", "header"]): t.decompose()
     items, cur, seen = [], "", set()
     for l in [x.strip() for x in s.get_text("\n").split("\n") if x.strip()]:
-        m = re.search(r"\$\s?\d+(?:\.\d{2})?\s*$", l)
+        m = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", l)
         if m:
-            nm = l[:m.start()].strip(" .-–·$")
-            if 3 <= len(nm) <= 60 and not BAD.match(nm) and nm.lower() not in seen: seen.add(nm.lower()); items.append({"section": cur, "name": nm, "price": m.group(0).replace(" ", ""), "desc": ""})
+            nm = l[:m.start()].strip(" .-–·$|"); pr = " / ".join(re.sub(r"\s", "", p) for p in re.findall(r"\$\s?\d+(?:\.\d{2})?", m.group(1))[:2])
+            if 3 <= len(nm) <= 60 and len(re.findall(r"[A-Za-z]", nm)) >= 3 and "$" not in nm and not BAD.match(nm) and nm.lower() not in seen: seen.add(nm.lower()); items.append({"section": cur, "name": nm, "price": pr, "desc": ""})
         elif 2 < len(l) < 30 and not re.search(r"\d|@|http", l): cur = l.title()
         elif items and not items[-1]["desc"] and 15 < len(l) < 160 and "$" not in l: items[-1]["desc"] = l
     return items[:24] if len(items) >= 5 else []
@@ -42,7 +44,9 @@ def hours_of(biz, text):
     for x in oh:
         m = re.match(r"([A-Za-z,\- ]+?)\s+(\d{1,2}:\d{2}-\d{1,2}:\d{2})", x)
         if m: rows.append((re.sub(r"\b(Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda k: {"Mo": "Mon", "Tu": "Tue", "We": "Wed", "Th": "Thu", "Fr": "Fri", "Sa": "Sat", "Su": "Sun"}[k.group(1)], m.group(1).strip()).replace("-", " to "), m.group(2).replace("-", " to ")))
-    if rows: return rows[:7]
+    def t12(x): return re.sub(r"\b(\d{1,2}):(\d{2})\b", lambda k: (str(int(k.group(1)) % 12 or 12) + ("" if k.group(2) == "00" else ":" + k.group(2)) + (" AM" if int(k.group(1)) < 12 else " PM")), x)
+    rows = [(a, t12(b)) for a, b in rows]
+    if rows: return rows[:7] if (len(rows) >= 3 or any(" to " in r[0] for r in rows)) else []
     for m in re.finditer(rf"({DAY}(?:\s*(?:-|–|to|through)\s*{DAY})?)\s*[:\-]?\s*(\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?\s*(?:-|–|to)\s*\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?)", text, re.I):
         rows.append((m.group(1).strip().title(), re.sub(r"\s*(-|–)\s*", " to ", m.group(2).strip())))
         if len(rows) == 7: break
@@ -68,8 +72,10 @@ def photos_of(soup, base, folder):
         if im is None: continue
         h = media.ahash(im)
         if any(sum(x != y for x, y in zip(h, o)) <= 5 for o in hashes): continue
-        hashes.append(h); good.append(im)
-    good.sort(key=lambda i: -i.width * i.height); out = []
+        lb = media.label(im); hashes.append(h)
+        if lb not in ("graphic", "logo"): good.append((lb, im))
+    pr = {"food": 0, "interior": 1, "exterior": 2, "drink": 3, "": 4, "people": 6}; good.sort(key=lambda x: (pr.get(x[0], 5), -x[1].width * x[1].height))
+    ppl = [x for x in good if x[0] == "people"]; good = [x[1] for x in good if x[0] != "people"] + [x[1] for x in ppl[:1]]; out = []
     for n, im in enumerate(good[:8]): media.save(im, f"{folder}/img/p{n}.jpg"); out.append(f"img/p{n}.jpg")
     return out
 def process(r, folder):
@@ -102,13 +108,20 @@ def process(r, folder):
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
-    html, info = build3(d); open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
+    if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
+        html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
+        if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
+    else: html, info = build3(d)
+    open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
+    pts = (2 if own >= 4 else 1 if own >= 2 else 0) + (2 if len(items) >= 5 else 0) + (1 if addr else 0) + (1 if d["hours"] else 0) + (1 if logo else 0) + (1 if len(about) >= 60 else 0)
+    d["grade"] = "A" if pts >= 6 else "B" if pts >= 4 else "C"; d["pts"] = pts
     flags = [x for x, bad in [("no own photos", own < 3), ("no menu", msrc in ("none", "link") and not items), ("no address", not addr), ("no logo", not logo)] if bad]
     return d, info, msrc, own, "ok" if not flags else "check: " + ", ".join(flags), html
 def main(src):
     rows = list(csv.DictReader(open(src, encoding="utf-8-sig"))); done = {}
     if os.path.exists(RES): done = {r["Website"]: r for r in csv.DictReader(open(RES, encoding="utf-8"))}
     for r in done.values(): r["batch"] = r.get("batch") or "1"
+    USED.update(r.get("theme") for r in done.values() if r.get("theme") in artdir.DIRS)
     n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch = []; used = {r.get("site_path") for r in done.values()}
     for r in [x for x in rows if x.get("Website") and x["Website"] not in done][:int(os.getenv("MAX_PER_RUN", "30"))]:
         res = dict(r); name = r.get("Name") or r["Website"]; s = slug(name); k = 2; b0 = s
@@ -117,7 +130,7 @@ def main(src):
         try:
             d, info, msrc, own, qa, html = process(r, f"{OUT}/{s}"); perf, seo, iss, fix = audit(r["Website"], get(r["Website"]).text)
             res.update({"fetch_status": "ok", "template": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
-                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa})
+                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
         res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[r["Website"]] = res; batch.append(res); print(name, res["fetch_status"], res.get("qa_flag")); time.sleep(2)
     allr = list(done.values()); cols = list(dict.fromkeys(c for r in allr for c in r)); d = os.path.dirname(RES) or "."; os.makedirs(d, exist_ok=True)

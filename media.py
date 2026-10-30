@@ -1,4 +1,4 @@
-import base64, io, json, os, re, statistics, requests
+import base64, io, json, os, re, statistics, time, requests
 from PIL import Image
 UA = {"User-Agent": "Mozilla/5.0 (compatible; DemoSiteBot/1.0)"}
 PEX, GEM, GM = os.getenv("PEXELS_API_KEY", ""), os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
@@ -12,7 +12,9 @@ def photo(b):
     w, h = im.size
     if w < 900 or h < 550 or not .55 <= w / h <= 2.4: return None
     im = im.convert("RGB"); px = [sum(p) / 3 for p in im.resize((32, 32)).getdata()]
-    return im if statistics.pstdev(px) >= 28 else None
+    if statistics.pstdev(px) < 28: return None
+    h = sorted(im.resize((80, 80)).quantize(colors=16).histogram(), reverse=True)
+    return None if sum(h[:3]) / 6400 > .72 else im  # flat promo graphics: 3 colours cover most pixels
 def ahash(im): g = list(im.convert("L").resize((8, 8)).getdata()); m = sum(g) / 64; return "".join("1" if x > m else "0" for x in g)
 def save(im, path, maxw=1600):
     if im.width > maxw: im = im.resize((maxw, int(im.height * maxw / im.width)))
@@ -49,3 +51,13 @@ def gemini_menu(data, mime):
         items = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
         return [i for i in items if isinstance(i, dict) and i.get("name")][:30]
     except Exception: return []
+
+def label(im):
+    """Vision label (needs Gemini key): food, drink, interior, exterior, people, graphic, logo. '' if unavailable."""
+    if not GEM: return ""
+    b = io.BytesIO(); t = im.copy(); t.thumbnail((640, 640)); t.save(b, "JPEG", quality=70)
+    try:
+        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GM}:generateContent?key={GEM}", timeout=40, json={"contents": [{"parts": [{"text": "Classify this image for a restaurant website. Reply with exactly one word: food, drink, interior, exterior, people, graphic, logo."}, {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(b.getvalue()).decode()}}]}]})
+        w = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip().lower().split()[0].strip(".,")
+        time.sleep(4); return w if w in {"food", "drink", "interior", "exterior", "people", "graphic", "logo"} else ""
+    except Exception: return ""
