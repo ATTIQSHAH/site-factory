@@ -1,0 +1,49 @@
+name: check-live-links
+on: workflow_dispatch
+permissions: {contents: write}
+concurrency: {group: factory}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt && python check_live.py
+      - run: |
+          git config user.name "site-factory"; git config user.email "bot@users.noreply.github.com"
+          git add -A; git diff --cached --quiet || (git commit -m "live status" && git push)
+
+name: nightly-site-factory
+on:
+  schedule: [{cron: "0 21 * * *"}]
+  workflow_dispatch:
+    inputs:
+      max: {description: "Max new leads this run", default: "15"}
+permissions: {contents: write}
+concurrency: {group: factory}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt && playwright install --with-deps chromium
+      - run: python factory3.py leads/input.csv
+        env:
+          PAGESPEED_KEY: ${{ secrets.PAGESPEED_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_DESIGN_MODEL: ${{ vars.GEMINI_DESIGN_MODEL || 'gemini-2.5-flash' }}
+          AI_DESIGN: ${{ vars.AI_DESIGN }}
+          BASE_URL: ${{ vars.BASE_URL }}
+          MAX_PER_RUN: ${{ github.event.inputs.max || '15' }}
+      - name: Save and push sites (triggers Cloudflare deploy)
+        run: |
+          git config user.name "site-factory"; git config user.email "bot@users.noreply.github.com"
+          git add -A; git diff --cached --quiet || (git commit -m "new batch" && git push)
+      - name: Wait for Cloudflare, then record which links are live
+        run: sleep 240 && python check_live.py
+      - run: |
+          git add -A; git diff --cached --quiet || (git commit -m "live status" && git push)
