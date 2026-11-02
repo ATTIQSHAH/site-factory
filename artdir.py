@@ -16,7 +16,7 @@ DIRS = {
  "split": "Modern split-screen: sticky image column beside scrolling text, big numerals, monochrome plus one saturated accent, confident asymmetry.",
  "roastery": "Craft roastery: kraft paper, espresso brown and cream, label-style typography, tight vertical rhythm, product-card menu, understated and premium.",
  "patisserie": "Soft patisserie: blush, butter and cream, rounded cards, a single script accent font used once, delicate, airy, photography forward."}
-FIT = {"coffee": ["roastery", "nordic", "editorial", "botanical", "split"], "bakery": ["patisserie", "editorial", "nordic", "rustic", "botanical"],
+FIT = {"coffee": ["roastery", "nordic", "editorial", "botanical", "split"], "cafe": ["nordic", "botanical", "editorial", "roastery", "split"], "fastfood": ["street", "retro", "rustic", "neon", "split"], "bakery": ["patisserie", "editorial", "nordic", "rustic", "botanical"],
        "grill": ["street", "rustic", "neon", "retro", "split"], "restaurant": ["dark_luxe", "editorial", "mediterranean", "botanical", "split", "neon", "rustic"]}
 def pick(kind, used):
     c = FIT.get(kind, FIT["restaurant"]); return min(c, key=lambda k: (used.get(k, 0), c.index(k)))  # least-used first => variety across the batch
@@ -26,7 +26,7 @@ def palette(path):
 RULES = """You are a senior web designer building ONE self-contained HTML file (inline CSS and JS, at most two Google Fonts) for a restaurant or cafe demo pitch.
 HARD RULES
 - Use ONLY the facts and assets in the JSON brief. Never invent dishes, prices, reviews, awards, years, slogans or statistics. If a fact is missing, omit that element.
-- Images: use only the given relative paths, with alt text and object-fit. Never hotlink. Give every hero text a solid overlay or panel so contrast is at least 4.5:1.
+- Images: use only the given local paths, with alt text and object-fit. Never hotlink. The brief distinguishes business-owned photos from illustrative stock photos. If any stock photos are used, include a discreet visible note: "Some imagery is illustrative stock photography." Never present stock as the business, its staff, premises, or actual menu items. Give every hero text a solid overlay or panel so contrast is at least 4.5:1.
 - Buttons are always solid-filled with readable text, never transparent over images.
 - No emojis, no generic phrases (welcome to, passion for, culinary journey, unforgettable), no gradient blobs or glassmorphism, no lorem ipsum.
 - Mobile-first and fluid (clamp() type, no horizontal scroll), tap targets at least 44px, sticky call/directions bar on mobile.
@@ -43,7 +43,7 @@ def gem(parts, system=None, js=False):
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
-            "hours": d["hours"], "logo": d["logo"][0] if d.get("logo") else None, "logo_needs_dark_chip": bool(d.get("logo") and d["logo"][1] == "light"), "photos": ph, "video": d.get("video"), "menu_items": d["menu"], "menu_url": d.get("menu_url"),
+            "hours": d["hours"], "logo": d["logo"][0] if d.get("logo") else None, "logo_needs_dark_chip": bool(d.get("logo") and d["logo"][1] == "light"), "photos": ph, "business_owned_photos": d.get("own_photos", ph), "illustrative_stock_photos": d.get("stock_photos", []), "has_illustrative_stock": bool(d.get("has_stock_photos")), "video": d.get("video"), "menu_items": d["menu"], "menu_url": d.get("menu_url"),
             "order_url": d.get("order_url"), "instagram": d.get("ig"), "facebook": d.get("fb"), "dominant_colors": pal}
 def serve(root):
     h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root); h.log_message = lambda *a: None
@@ -79,6 +79,9 @@ def make_site(d, root, slug, direction, fallback):
         for i in range(3):
             html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \
                    gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
+            if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
+                note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
+                html = re.sub(r"</body\s*>", lambda m: note + m.group(0), html, flags=re.I) if re.search(r"</body\s*>", html, re.I) else html + note
             open(f"{folder}/index.html", "w", encoding="utf-8").write(html); issues, shots = qa(root, slug); c = critique(shots, d["name"]); sc = float(c.get("score", 0)) - 2 * len(issues); fixes = c.get("fixes", [])
             if sc > best[0]: best = (sc, html)
             if not issues and sc >= 8: break

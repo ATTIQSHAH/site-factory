@@ -2,7 +2,7 @@
 import csv, os, re, sys, time
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-import media, artdir
+import media, artdir, stock
 from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
@@ -98,16 +98,13 @@ def process(r, folder):
             b, _ = media.dl(link); im = media.photo(b) if b else None
             if im: media.save(im, f"{folder}/img/s{n}.jpg"); ph.append(f"img/s{n}.jpg")
         video, poster = media.pexels_video(q)
-    seed = sum(map(ord, os.path.basename(folder))); lib = f"{OUT}/_stock/{kind}"
-    if os.path.isdir(lib):
-        pics = sorted(f for f in os.listdir(lib) if re.search(r"\.(jpe?g|png|webp)$", f, re.I)); vids = sorted(f for f in os.listdir(lib) if f.lower().endswith(".mp4"))
-        for n in range(len(pics)):
-            if len(ph) >= 6: break
-            ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
-        if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
+    stock_ph = stock.select_stock(f"{OUT}/_stock", name, kind, folder, ph, limit=max(0, 6 - len(ph)))
+    ph.extend(stock_ph)
+    if stock_ph:
+        print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
+         "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
