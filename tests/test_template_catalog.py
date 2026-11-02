@@ -34,7 +34,7 @@ class TemplateCatalogueTests(unittest.TestCase):
             for row in catalogue():
                 render3.select_template = lambda *args, _row=row, **kwargs: (_row['file'], _row)
                 html, info = render3.build3(data)
-                self.assertNotRegex(html, r'\\{\\{[A-Z0-9_]+\\}\\}', row['file'])
+                self.assertNotRegex(html, r'\{\{[A-Z0-9_]+\}\}', row['file'])
                 self.assertEqual(info['template_file'], row['file'])
         finally:
             render3.select_template = original_selector
