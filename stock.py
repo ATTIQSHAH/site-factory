@@ -29,7 +29,7 @@ CATEGORY_FALLBACKS = {
     "restaurant": ["restaurant", "shared"],
     "cafe": ["cafe", "coffee", "restaurant", "shared"],
     "coffee": ["coffee", "cafe", "restaurant", "shared"],
-    "fastfood": ["fastfood", "restaurant", "shared"],
+    "fastfood": ["fastfood", "restaurant", "grill", "shared"],
 }
 
 
