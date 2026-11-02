@@ -81,7 +81,7 @@ def make_site(d, root, slug, direction, fallback):
                    gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
-                html = html.replace("</body>", note + "</body>") if "</body>" in html.lower() else html + note
+                html = re.sub(r"</body\\s*>", lambda m: note + m.group(0), html, flags=re.I) if re.search(r"</body\\s*>", html, re.I) else html + note
             open(f"{folder}/index.html", "w", encoding="utf-8").write(html); issues, shots = qa(root, slug); c = critique(shots, d["name"]); sc = float(c.get("score", 0)) - 2 * len(issues); fixes = c.get("fixes", [])
             if sc > best[0]: best = (sc, html)
             if not issues and sc >= 8: break
