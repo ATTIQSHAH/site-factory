@@ -37,9 +37,20 @@ def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
     body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240).json()
-    time.sleep(5); t = r["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", t.strip())
+    response = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240)
+    try: payload = response.json()
+    except ValueError: raise RuntimeError(f"Gemini returned non-JSON HTTP {response.status_code}: {response.text[:500]}")
+    if not response.ok or payload.get("error"): raise RuntimeError(f"Gemini HTTP {response.status_code}: {payload.get('error', {}).get('message', response.text[:500])}")
+    candidates = payload.get("candidates") or []
+    if not candidates: raise RuntimeError("Gemini produced no candidate: " + str(payload.get("promptFeedback", {}).get("blockReason", "unknown response")))
+    parts_out = candidates[0].get("content", {}).get("parts", [])
+    t = "\n".join(p.get("text", "") for p in parts_out if p.get("text"))
+    if not t.strip(): raise RuntimeError("Gemini candidate contained no text")
+    time.sleep(2)
+    if js:
+        t = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", t.strip(), flags=re.I)
+        return json.loads(t)
+    return re.sub(r"^\s*```(?:html)?\s*|\s*```\s*$", "", t.strip(), flags=re.I)
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
@@ -75,6 +86,8 @@ def critique(shots, name):
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
     folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
+    base_html, base_info = fallback(d)
+    br["selected_template"] = base_info.get("template_file") or base_info.get("template")
     try:
         for i in range(3):
             html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \
@@ -87,4 +100,4 @@ def make_site(d, root, slug, direction, fallback):
             if not issues and sc >= 8: break
     except Exception as e: print("AI design failed:", str(e)[:100])
     if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1)}
-    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; return h, info
+    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; info["ai_error"] = "AI improvement unavailable or below threshold; selected template used"; return h, info
