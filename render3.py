@@ -19,7 +19,7 @@ def niche(n):
     n = n.lower()
     if re.search(r"coffee|roast|espresso|roastery|cappuccino", n): return "coffee", "coffee shop"
     if re.search(r"cafe|café|bistro|brunch", n): return "cafe", "cafe interior"
-    if re.search(r"fast[\\s-]?food|burger|hamburger|pizza|pizzeria|fried chicken|wings|taco|trompo|birria|fries|hot ?dog|kebab|shawarma", n): return "fastfood", "fast food"
+    if re.search(r"fast[\s-]?food|burger|hamburger|pizza|pizzeria|fried chicken|wings|taco|trompo|birria|fries|hot ?dog|kebab|shawarma", n): return "fastfood", "fast food"
     if re.search(r"bakery|bread|bake|cake|dessert|cookie|macaron|donut|pastry", n): return "bakery", "bakery pastries"
     if re.search(r"bbq|barbecue|smokehouse|smoke|grill|brew|pub|cantina", n): return "grill", "grilled food"
     return "restaurant", "restaurant interior"
@@ -80,6 +80,6 @@ def build3(d):
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
-           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
+           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero}
