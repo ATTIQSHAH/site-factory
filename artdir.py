@@ -90,7 +90,7 @@ def make_site(d, root, slug, direction, fallback):
     br["selected_template"] = base_info.get("template_file") or base_info.get("template")
     try:
         for i in range(3):
-            html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \
+            html = gem([{"text": "BRIEF:\\n" + json.dumps(br, ensure_ascii=False) + "\\n\\nSELECTED TEMPLATE (fully populated starting point; improve it while preserving verified facts):\\n" + base_html}], RULES + "\\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \\
                    gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
@@ -99,5 +99,5 @@ def make_site(d, root, slug, direction, fallback):
             if sc > best[0]: best = (sc, html)
             if not issues and sc >= 8: break
     except Exception as e: print("AI design failed:", str(e)[:100])
-    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1)}
+    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1), "template": base_info.get("template"), "template_file": base_info.get("template_file")}
     h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; info["ai_error"] = "AI improvement unavailable or below threshold; selected template used"; return h, info
