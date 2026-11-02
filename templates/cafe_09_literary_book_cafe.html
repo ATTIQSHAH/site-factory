@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{NAME}} | Authentic Hospitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="{{FONTLINK}}" rel="stylesheet">
+<style>
+:root {
+    --bg: {{BG}};
+    --bg2: {{BG2}};
+    --ink: {{INK}};
+    --mut: {{MUT}};
+    --acc: {{ACC}};
+    --accink: {{ACCINK}};
+    --line: {{LINE}};
+    --disp: '{{DISP}}', Georgia, serif;
+    --body: '{{BODY}}', system-ui, -apple-system, sans-serif;
+    --rad: {{RAD}};
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, .font-disp { font-family: var(--disp); }
+a { color: inherit; }
+
+/* Scroll Reveal */
+.rv { opacity: 0; transform: translateY(22px); transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
+.rv.on { opacity: 1; transform: translateY(0); }
+
+/* Custom Pillar Theme CSS */
+
+        .pillar-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg2); border: 1px solid var(--line); color: var(--ink); padding: 0.5rem 1.3rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; margin-bottom: 1.2rem; }
+        .pillar-badge span { color: var(--acc); }
+        .hero { max-width: 1250px; margin: 0 auto; padding: 6.5rem 2rem 4rem; display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; }
+        .bento-hero-left { background: var(--bg2); border-radius: calc(var(--rad) * 1.5); padding: 3.5rem; display: flex; flex-direction: column; justify-content: center; border: 1px solid var(--line); }
+        .hero-title { font-size: clamp(2.6rem, 5vw, 4.2rem); line-height: 1.12; font-weight: 500; letter-spacing: -0.02em; margin: 0.8rem 0 1.2rem; }
+        .hero-lead { font-size: 1.2rem; line-height: 1.6; color: var(--mut); margin-bottom: 2rem; }
+        .bento-hero-right { display: grid; grid-template-rows: 1.3fr 0.7fr; gap: 1.5rem; }
+        .bento-img-frame { border-radius: calc(var(--rad) * 1.5); overflow: hidden; border: 1px solid var(--line); position: relative; min-height: 250px; }
+        .bento-img-frame img { width: 100%; height: 100%; object-fit: cover; }
+        .bento-quote-frame { background: var(--bg2); border-radius: calc(var(--rad) * 1.5); padding: 2rem; border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; }
+        @media (max-width: 900px) { .hero { grid-template-columns: 1fr; padding-top: 4.5rem; } .bento-hero-right { grid-template-rows: auto; } }
+        
+
+    /* Header & Navigation with guaranteed contrast matching theme background */
+    header { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); background: var(--bg); border-bottom: 1px solid var(--line); transition: all 0.3s; }
+    header.on { box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .nav-container { max-width: 1300px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 1.15rem 2rem; }
+    .nav-brand { display: flex; align-items: center; gap: 0.8rem; text-decoration: none; font-size: 1.35rem; font-weight: 700; font-family: var(--disp); color: var(--ink); }
+    .nav-menu { display: flex; list-style: none; gap: 2.2rem; align-items: center; margin: 0; padding: 0; }
+    .nav-menu a { text-decoration: none; font-size: 0.95rem; font-weight: 500; color: var(--mut); transition: color 0.2s; }
+    .nav-menu a:hover { color: var(--ink); }
+    .nav-cta { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--acc); color: var(--accink); padding: 0.65rem 1.4rem; border-radius: var(--rad); font-size: 0.88rem; font-weight: 700; text-decoration: none; transition: opacity 0.2s, transform 0.2s; }
+    .nav-cta:hover { opacity: 0.92; transform: translateY(-1px); }
+    @media (max-width: 860px) { .nav-menu { display: none; } }
+
+    /* Buttons */
+    .btn-main { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; background: var(--acc); color: var(--accink); padding: 0.95rem 2rem; border-radius: var(--rad); font-weight: 700; text-decoration: none; font-size: 1.05rem; transition: all 0.2s; border: 0; cursor: pointer; }
+    .btn-main:hover { transform: translateY(-2px); opacity: 0.95; }
+    .btn-alt { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; background: var(--bg2); color: var(--ink); padding: 0.95rem 2rem; border-radius: var(--rad); font-weight: 600; text-decoration: none; font-size: 1.05rem; border: 1px solid var(--line); transition: background 0.2s; }
+    .btn-alt:hover { background: var(--line); }
+
+    /* Sections */
+    section { padding: 6.5rem 2rem; max-width: 1280px; margin: 0 auto; }
+    .section-header { text-align: center; max-width: 680px; margin: 0 auto 3.5rem; }
+    .section-tag { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.78rem; font-weight: 700; color: var(--acc); margin-bottom: 0.75rem; display: inline-block; }
+    .section-title { font-size: clamp(2.2rem, 4vw, 3.4rem); line-height: 1.15; font-weight: 500; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+    .section-intro { color: var(--mut); margin-top: 1rem; font-size: 1.15rem; line-height: 1.6; }
+
+    /* Story Section */
+    .story-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4.5rem; align-items: center; background: var(--bg2); padding: 4.5rem; border-radius: calc(var(--rad) * 1.5); border: 1px solid var(--line); }
+    .story-content { font-size: 1.1rem; line-height: 1.75; color: var(--ink); }
+    .story-photo-frame { border-radius: var(--rad); overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--line); box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
+    .story-photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+    @media (max-width: 880px) { .story-card-grid { grid-template-columns: 1fr; padding: 2rem; gap: 2rem; } }
+
+    /* Menu & Offerings */
+    .menu-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.8rem; }
+    .menu-card { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--rad); padding: 1.8rem; transition: transform 0.2s, box-shadow 0.2s; }
+    .menu-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(0,0,0,0.06); }
+    .menu-card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+    .menu-item-title { font-size: 1.25rem; font-weight: 600; font-family: var(--disp); color: var(--ink); }
+    .menu-item-price-tag { font-weight: 700; color: var(--acc); font-size: 1.15rem; }
+    .menu-item-details { color: var(--mut); font-size: 0.95rem; line-height: 1.55; margin: 0; }
+
+    /* Gallery Grid */
+    .gallery-showcase { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.5rem; }
+    .gallery-item { border-radius: var(--rad); overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--line); position: relative; }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+    .gallery-item:hover img { transform: scale(1.06); }
+
+    /* Visit / Location Box */
+    .visit-hub { background: var(--bg2); border: 1px solid var(--line); border-radius: calc(var(--rad) * 1.5); padding: 4rem; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; }
+    .hours-list { width: 100%; border-collapse: collapse; margin: 1.8rem 0; }
+    .hours-list tr { border-bottom: 1px solid var(--line); }
+    .hours-list td { padding: 0.9rem 0; font-size: 1rem; color: var(--ink); }
+    .hours-list td:last-child { text-align: right; font-weight: 700; color: var(--ink); }
+    .map-frame { width: 100%; height: 350px; border-radius: var(--rad); overflow: hidden; border: 1px solid var(--line); }
+    .map-frame iframe { width: 100%; height: 100%; border: 0; }
+    @media (max-width: 880px) { .visit-hub { grid-template-columns: 1fr; padding: 2rem; gap: 2.5rem; } }
+
+    /* Order / Booking Banner */
+    .cta-hub { background: var(--ink); color: var(--bg); border-radius: calc(var(--rad) * 1.5); padding: 4.5rem 2rem; text-align: center; margin: 4rem auto; max-width: 1200px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+    .cta-hub h2 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; color: var(--bg); }
+    .cta-hub p { color: var(--bg); opacity: 0.85; font-size: 1.25rem; max-width: 620px; margin: 0 auto 2.2rem; }
+
+    /* Mobile Quick Bar */
+    .m { display: none; }
+    @media (max-width: 768px) {
+        .m { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 99; background: var(--bg); border-top: 1px solid var(--line); padding: 0.8rem 1rem; gap: 0.8rem; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+        .m a { flex: 1; text-align: center; padding: 0.9rem; border-radius: var(--rad); font-weight: 700; text-decoration: none; font-size: 0.95rem; }
+        .m-call { background: var(--acc); color: var(--accink); }
+        .m-dir { background: var(--bg2); color: var(--ink); border: 1px solid var(--line); }
+    }
+    
+</style>
+</head>
+<body class="hero-{{HERO}} theme-cafe_09_literary_book_cafe pillar-cafe">
+
+<!-- Navigation -->
+<header id="h">
+    <div class="nav-container">
+        <a href="#top" class="nav-brand">
+            {{LOGO}}
+            <span>{{NAME}}</span>
+        </a>
+        <ul class="nav-menu">
+            {{NAV}}
+        </ul>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <a href="tel:{{TEL}}" class="nav-cta">Call: {{PHONE}}</a>
+        </div>
+    </div>
+</header>
+
+<!-- Hero Section -->
+<section class="hero" id="top">
+
+    <div class="bento-hero-left rv">
+        <div class="pillar-badge"><span>{{EYEBROW}}</span> · Curated Books · Quiet Workspaces</div>
+        <h1 class="hero-title">{{NAME}}</h1>
+        <p class="hero-lead">{{ABOUT_SHORT}}</p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="#{{CTA1}}" class="btn-main">Visit The Cafe</a>
+            <a href="tel:{{TEL}}" class="btn-alt">Direct Line</a>
+        </div>
+    </div>
+    <div class="bento-hero-right rv">
+        <div class="bento-img-frame">
+            <img src="{{HEROIMG}}" alt="{{NAME}} showcase">
+        </div>
+        <div class="bento-quote-frame">
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.4rem; font-family: var(--disp);">Fresh Batch Roasted & Baked Daily</div>
+            <div style="color: var(--mut); font-size: 0.95rem;">Experience seasonal ingredients and dedicated hospitality curated every morning.</div>
+        </div>
+    </div>
+
+</section>
+
+<!-- Highlights Photo Strip -->
+<div class="strip">{{STRIP}}</div>
+
+<!-- Story Section -->
+<section id="about" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Authentic Craft</span>
+        <h2 class="section-title">The Philosophy Behind {{NAME}}</h2>
+        <p class="section-intro">Honoring genuine ingredients, slow preparation, and neighborly warmth.</p>
+    </div>
+    <div class="story-card-grid">
+        <div class="story-content">{{STORY}}</div>
+        <div class="story-photo-frame">
+            <img src="{{HEROIMG}}" alt="{{NAME}} kitchen">
+        </div>
+    </div>
+</section>
+
+<!-- Menu Section -->
+<section id="menu" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Curated Offerings</span>
+        <h2 class="section-title">Featured Menu & Specialties</h2>
+        <p class="section-intro">Prepared fresh daily with seasonal harvests and time-honored recipes.</p>
+    </div>
+    <div class="menu-container">
+        {{MENU}}
+    </div>
+</section>
+
+<!-- Gallery Section -->
+<section id="gallery" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Ambiance</span>
+        <h2 class="section-title">A Look Inside</h2>
+        <p class="section-intro">A glimpse into our kitchen, dining room, and daily creations.</p>
+    </div>
+    <div class="gallery-container">
+        {{GALLERY}}
+    </div>
+</section>
+
+<!-- Visit / Hours Section -->
+<section id="visit" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Join Us</span>
+        <h2 class="section-title">Hours & Location</h2>
+        <p class="section-intro">Walk-ins always welcome. We look forward to serving you.</p>
+    </div>
+    <div class="visit-hub">
+        <div>
+            <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem; font-family: var(--disp);">Service Hours</h3>
+            <div class="visit-hours-content">{{VISIT}}</div>
+            <div style="margin-top: 2.2rem;">
+                <a href="{{DIR}}" target="_blank" rel="noopener" class="btn-main">Get Directions on Maps</a>
+            </div>
+        </div>
+        <div class="map-frame">
+            <iframe src="https://maps.google.com/maps?q={{NAME}}&output=embed" loading="lazy"></iframe>
+        </div>
+    </div>
+</section>
+
+<!-- Online Order / Reservation Banner -->
+<div class="rv">
+    {{ORDER}}
+</div>
+
+<!-- Footer -->
+<footer style="border-top: 1px solid var(--line); padding: 4.5rem 2rem 5.5rem; background: var(--bg2); margin-top: 4rem;">
+    <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem;">
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; font-family: var(--disp); margin-bottom: 0.5rem;">{{NAME}}</div>
+            <p style="color: var(--mut); font-size: 0.95rem;">&copy; 2026 {{NAME}}. All rights reserved.</p>
+        </div>
+        <div class="social-links">
+            {{SOCIALS}}
+        </div>
+    </div>
+</footer>
+
+<!-- Mobile Quick Bar -->
+<div class="m">
+    <a href="tel:{{TEL}}" class="m-call">Call {{PHONE}}</a>
+    <a href="{{DIR}}" target="_blank" rel="noopener" class="m-dir">Directions</a>
+</div>
+
+<script>
+const h = document.getElementById('h');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 40) h.classList.add('on');
+    else h.classList.remove('on');
+});
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            e.target.classList.add('on');
+            observer.unobserve(e.target);
+        }
+    });
+}, { threshold: 0.1 });
+document.querySelectorAll('.rv').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
