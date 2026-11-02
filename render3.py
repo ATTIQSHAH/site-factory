@@ -5,7 +5,7 @@ PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42
  "ivory": ("#faf6ef", "#f0e8da", "#241a17", "#6b5b54", "#8c2f2b", "rgba(36,26,23,.14)"), "slate": ("#14191f", "#1d242c", "#eef1f4", "#a5b0bb", "#d38b5d", "rgba(255,255,255,.12)"),
  "blush": ("#fbf1ee", "#f4e2dd", "#3a2224", "#7a5c5e", "#b4505a", "rgba(58,34,36,.14)"), "butter": ("#fff8e6", "#f8ecc8", "#33280f", "#6e6140", "#a6650d", "rgba(51,40,15,.14)"),
  "ember": ("#141010", "#1e1816", "#f6efe9", "#b9aaa0", "#e2552b", "rgba(255,255,255,.12)"), "paprika": ("#fff7ee", "#fbe9d4", "#2b1a10", "#6c5445", "#b83b05", "rgba(43,26,16,.14)")}
-THEMES = {"coffee": ["cream", "espresso", "sage"], "restaurant": ["noir", "ivory", "slate"], "bakery": ["blush", "butter", "cream"], "grill": ["ember", "paprika", "slate"]}
+THEMES = {"coffee": ["cream", "espresso", "sage"], "cafe": ["sage", "cream", "espresso"], "fastfood": ["ember", "paprika", "slate"], "restaurant": ["noir", "ivory", "slate"], "bakery": ["blush", "butter", "cream"], "grill": ["ember", "paprika", "slate"]}
 FONTS = [("Playfair Display", "Inter", "Playfair+Display:wght@500;700&family=Inter:wght@400;500;600"), ("Fraunces", "DM Sans", "Fraunces:wght@500;700&family=DM+Sans:wght@400;500;600"),
          ("DM Serif Display", "Inter", "DM+Serif+Display&family=Inter:wght@400;500;600"), ("Cormorant Garamond", "Inter", "Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600")]
 def lum(h): h = h.lstrip("#"); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]; c = [x / 12.92 if x <= .03928 else ((x + .055) / 1.055) ** 2.4 for x in c]; return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
@@ -17,9 +17,11 @@ def safe_acc(acc, bg, ink):
     return acc
 def niche(n):
     n = n.lower()
-    if re.search(r"coffee|cafe|café|roast|espresso", n): return "coffee", "coffee shop"
+    if re.search(r"coffee|roast|espresso|roastery|cappuccino", n): return "coffee", "coffee shop"
+    if re.search(r"cafe|café|bistro|brunch", n): return "cafe", "cafe interior"
+    if re.search(r"fast[\\s-]?food|burger|hamburger|pizza|pizzeria|fried chicken|wings|taco|trompo|birria|fries|hot ?dog|kebab|shawarma", n): return "fastfood", "fast food"
     if re.search(r"bakery|bread|bake|cake|dessert|cookie|macaron|donut|pastry", n): return "bakery", "bakery pastries"
-    if re.search(r"bbq|barbecue|smokehouse|smoke|burger|pizza|pizzeria|taco|trompo|birria|grill|brew|pub|cantina", n): return "grill", "grilled food"
+    if re.search(r"bbq|barbecue|smokehouse|smoke|grill|brew|pub|cantina", n): return "grill", "grilled food"
     return "restaurant", "restaurant interior"
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
