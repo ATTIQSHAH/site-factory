@@ -84,7 +84,10 @@ def process(r, folder):
     name = r.get("Name") or (soup.title.string or "").split("|")[0].strip(); kind, q = niche(name)
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
-    addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
+    addr, city = address_of(biz, text)
+    city = re.sub(r"[^A-Za-z .-]", "", str(city or "")).strip()
+    if len(re.sub(r"[^A-Za-z]", "", city)) < 3: city = ""
+    items, menu_url, msrc = get_menu(soup, base)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
     if not lg:
         lg = next((i["src"] for i in soup.find_all("img") if i.get("src") and re.search("logo", " ".join([*(i.get("class") or []), i.get("id") or "", i.get("alt") or "", i["src"]]), re.I)), None)
@@ -126,8 +129,8 @@ def main(src):
         used.add(f"/{s}/")
         try:
             d, info, msrc, own, qa, html = process(r, f"{OUT}/{s}"); perf, seo, iss, fix = audit(r["Website"], get(r["Website"]).text)
-            res.update({"fetch_status": "ok", "template": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
-                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
+            res.update({"fetch_status": "ok", "template": info.get("template_file") or info.get("template") or d["kind"], "business_niche": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
+                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "ai_error": info.get("ai_error", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
         res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[r["Website"]] = res; batch.append(res); print(name, res["fetch_status"], res.get("qa_flag")); time.sleep(2)
     allr = list(done.values()); cols = list(dict.fromkeys(c for r in allr for c in r)); d = os.path.dirname(RES) or "."; os.makedirs(d, exist_ok=True)

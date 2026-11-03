@@ -1,0 +1,46 @@
+name: Site Factory CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "feat/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install project dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Compile Python modules
+        run: python -m compileall -q .
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate template inventory
+        run: |
+          python - <<'PY'
+          from template_catalog import catalogue
+          rows = catalogue()
+          assert len(rows) == 50, f"Expected 50 handcrafted templates, found {len(rows)}"
+          families = {row["family"] for row in rows}
+          expected = {"cafe", "coffee", "fast", "rest"}
+          assert expected <= families, f"Missing template families: {expected - families}"
+          print(f"Validated {len(rows)} templates across {sorted(families)}")
+          PY

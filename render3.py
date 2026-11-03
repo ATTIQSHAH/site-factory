@@ -1,4 +1,5 @@
 import hashlib, html, os, re, urllib.parse as up
+from template_catalog import select as select_template
 E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
@@ -25,7 +26,8 @@ def niche(n):
     return "restaurant", "restaurant interior"
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "premium.html"), encoding="utf-8").read()
+    template_file, template_meta = select_template(d.get("kind", "restaurant"), d.get("name", ""), d.get("about", ""), d.get("menu", []))
+    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file), encoding="utf-8").read()
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
@@ -51,7 +53,7 @@ def build3(d):
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n}" class="{"pill" if d["logo"][1] == "light" else "pillw"}">' if d.get("logo") else n
+    lg = f'<img src="{E(d["logo"][0])}" alt="{n} logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none">' if d.get("logo") else n
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
@@ -82,4 +84,4 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero}
+    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template": template_meta["id"], "template_file": template_file}
