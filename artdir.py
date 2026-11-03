@@ -90,8 +90,12 @@ def make_site(d, root, slug, direction, fallback):
     br["selected_template"] = base_info.get("template_file") or base_info.get("template")
     try:
         for i in range(3):
-            html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nSELECTED TEMPLATE (fully populated starting point; improve it while preserving verified facts):\n" + base_html}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \\
-                   gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
+            if i == 0:
+                prompt = "BRIEF:\\n" + json.dumps(br, ensure_ascii=False) + "\\n\\nSELECTED TEMPLATE (fully populated starting point; improve it while preserving verified facts):\\n" + base_html
+                html = gem([{"text": prompt}], RULES + "\\nDESIGN DIRECTION: " + DIRS[direction])
+            else:
+                prompt = "BRIEF:\\n" + json.dumps(br, ensure_ascii=False) + "\\n\\nCURRENT HTML:\\n" + html + "\\n\\nFix these problems and return the full improved HTML only:\\n- " + "\\n- ".join(issues + fixes)
+                html = gem([{"text": prompt}], RULES)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
                 html = re.sub(r"</body\s*>", lambda m: note + m.group(0), html, flags=re.I) if re.search(r"</body\s*>", html, re.I) else html + note
