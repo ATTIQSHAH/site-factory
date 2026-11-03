@@ -91,10 +91,10 @@ def make_site(d, root, slug, direction, fallback):
     try:
         for i in range(3):
             if i == 0:
-                prompt = "BRIEF:\\n" + json.dumps(br, ensure_ascii=False) + "\\n\\nSELECTED TEMPLATE (fully populated starting point; improve it while preserving verified facts):\\n" + base_html
-                html = gem([{"text": prompt}], RULES + "\\nDESIGN DIRECTION: " + DIRS[direction])
+                prompt = "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nSELECTED TEMPLATE (fully populated starting point; improve it while preserving verified facts):\n" + base_html
+                html = gem([{"text": prompt}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction])
             else:
-                prompt = "BRIEF:\\n" + json.dumps(br, ensure_ascii=False) + "\\n\\nCURRENT HTML:\\n" + html + "\\n\\nFix these problems and return the full improved HTML only:\\n- " + "\\n- ".join(issues + fixes)
+                prompt = "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)
                 html = gem([{"text": prompt}], RULES)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
