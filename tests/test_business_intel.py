@@ -96,6 +96,12 @@ class BusinessIntelligenceTests(unittest.TestCase):
             "",
         )
         self.assertEqual(conflicting_schema_hours, hours)
+        conflicting_visible_hours = hours_of(
+            {},
+            "Wednesday to Saturday 10a-7p Sunday 12p-7p "
+            "Wed 10a-6p Thu 10a-6p Fri 10a-6p Sat 10a-6p Sun 12p-5p",
+        )
+        self.assertEqual(conflicting_visible_hours, hours)
 
     def test_full_street_address_is_recovered_when_schema_only_has_city(self):
         soup = BeautifulSoup("<p>Visit us at 1701 West 15th Street Houston, TX 77008</p>", "html.parser")
