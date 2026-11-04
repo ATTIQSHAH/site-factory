@@ -7,6 +7,21 @@ import artdir
 
 class GeminiPayloadTests(unittest.TestCase):
     @patch("artdir.requests.post")
+    def test_gem_retries_transient_service_unavailable(self, post):
+        unavailable = SimpleNamespace(
+            ok=False, status_code=503, text="high demand", headers={},
+            json=lambda: {"error": {"message": "high demand"}},
+        )
+        success = SimpleNamespace(
+            ok=True, status_code=200, text="", headers={},
+            json=lambda: {"candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}]},
+        )
+        post.side_effect = [unavailable, success]
+        with patch.object(artdir, "KEY", "test-key"), patch.object(artdir.time, "sleep"):
+            result = artdir.gem([{"text": "test"}], js=True)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(post.call_count, 2)
+
     def test_visual_critique_uses_current_gemini_rest_field_names(self, post):
         payload = {
             "candidates": [{
