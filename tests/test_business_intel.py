@@ -1,6 +1,8 @@
 import unittest
 from business_intel import classify_business, extract_social_links
 from stock import business_category
+from bs4 import BeautifulSoup
+from factory3 import select_test_rows, hours_of, address_of, product_items_from_html, menu_text
 
 
 class BusinessIntelligenceTests(unittest.TestCase):
@@ -55,6 +57,86 @@ class BusinessIntelligenceTests(unittest.TestCase):
         ], "https://fluffbakebar.com/")
         self.assertEqual(found["instagram"], "https://www.instagram.com/fluffbakebar/")
         self.assertEqual(found["facebook"], "https://m.facebook.com/FluffHouston")
+
+    def test_single_website_selection_is_exact_and_bounded(self):
+        rows = [
+            {"Name": "Fluff Bake Bar", "Website": "https://fluffbakebar.com/"},
+            {"Name": "Other Bakery", "Website": "https://other.example/"},
+        ]
+        selected = select_test_rows(rows, "https://fluffbakebar.com", limit=15)
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["Name"], "Fluff Bake Bar")
+
+    def test_unknown_target_fails_instead_of_processing_another_lead(self):
+        rows = [{"Name": "Other Bakery", "Website": "https://other.example/"}]
+        with self.assertRaises(ValueError):
+            select_test_rows(rows, "https://fluffbakebar.com", limit=15)
+
+    def test_batch_limit_remains_enforced_without_target(self):
+        rows = [{"Website": f"https://shop{i}.example/"} for i in range(4)]
+        self.assertEqual(len(select_test_rows(rows, limit=2)), 2)
+
+    def test_abbreviated_weekly_hours_are_parsed(self):
+        hours = hours_of({}, "Wednesday - Saturday 10a-7p Sunday 12p-7p")
+        self.assertEqual(hours, [
+            ("Wednesday to Saturday", "10 AM to 7 PM"),
+            ("Sunday", "12 PM to 7 PM"),
+        ])
+        partial_schema_hours = hours_of(
+            {"openingHours": ["Sunday 12:00-19:00"]},
+            "Wednesday - Saturday 10a-7p Sunday 12p-7p",
+        )
+        self.assertEqual(partial_schema_hours, hours)
+        conflicting_schema_hours = hours_of(
+            {"openingHours": [
+                "Wednesday-Saturday 10:00-19:00", "Sunday 12:00-19:00",
+                "We 10:00-18:00", "Th 10:00-18:00", "Fr 10:00-18:00",
+                "Sa 10:00-18:00", "Su 12:00-17:00",
+            ]},
+            "",
+        )
+        self.assertEqual(conflicting_schema_hours, hours)
+        conflicting_visible_hours = hours_of(
+            {},
+            "Wednesday to Saturday 10a-7p Sunday 12p-7p "
+            "Wed 10a-6p Thu 10a-6p Fri 10a-6p Sat 10a-6p Sun 12p-5p",
+        )
+        self.assertEqual(conflicting_visible_hours, hours)
+
+    def test_full_street_address_is_recovered_when_schema_only_has_city(self):
+        soup = BeautifulSoup("<p>Visit us at 1701 West 15th Street Houston, TX 77008</p>", "html.parser")
+        address, city = address_of(
+            {"address": "Houston TX 77008 United States"},
+            soup.get_text(" ", strip=True),
+            soup,
+        )
+        self.assertEqual(address, "1701 West 15th Street, Houston, TX 77008")
+        self.assertEqual(city, "Houston")
+
+    def test_storefront_separate_product_and_price_lines_are_combined(self):
+        html = (
+            "<div>Cookies</div><div>Chocolate Chip Cookie</div><div>$3.25</div>"
+            "<div>Fluffernutter Cookie</div><div>$4.00</div>"
+            "<div>Unicorn Bait Cookie</div><div>$3.75</div>"
+            "<div>Couch Potato Cookie</div><div>$3.50</div>"
+            "<div>Brownie Bar</div><div>$4.25</div>"
+        )
+        items = menu_text(html)
+        self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
+        self.assertEqual(items[0]["price"], "$3.25")
+        self.assertEqual(items[0]["section"], "Cookies")
+        self.assertEqual(items[-1]["desc"], "")
+
+    def test_product_json_ld_extracts_real_menu_items_and_prices(self):
+        html = """<script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Product","name":"Chocolate Chip Cookie",
+         "description":"Chocolate chip cookie","offers":{"price":"3.25","priceCurrency":"USD"}}
+        </script>"""
+        items = product_items_from_html(html)
+        self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
+        self.assertEqual(items[0]["price"], "USD 3.25")
+        lowercase = product_items_from_html('<script type="application/ld+json">{"@type":"Product","name":"pumpkin pie","offers":{"price":"5.00"}}</script>')
+        self.assertEqual(lowercase[0]["name"], "Pumpkin Pie")
 
     def test_unknown_business_defaults_safely(self):
         kind, query, info = classify_business(name="Something")

@@ -2,7 +2,7 @@
 import base64, html as html_lib, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-3.8-flash")  # verify current model names and free limits
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -35,12 +35,39 @@ HARD RULES
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
+    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    response = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240)
+    response = None
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
+    for attempt in range(3):
+        response = requests.post(endpoint, json=body, timeout=240)
+        retry_delay = None
+        if response.status_code in (500, 502, 503, 504) and attempt < 2:
+            retry_after = response.headers.get("Retry-After", "")
+            try: retry_delay = min(max(float(retry_after), 1), 20)
+            except (TypeError, ValueError): retry_delay = 2 ** (attempt + 1)
+        elif response.status_code == 429 and attempt < 2:
+            try:
+                retry_payload = response.json()
+                details = retry_payload.get("error", {}).get("details", [])
+                retry_info = next((item for item in details if item.get("@type", "").endswith("RetryInfo")), {})
+                raw_delay = retry_info.get("retryDelay", "")
+                delay_match = re.fullmatch(r"(\d+(?:\.\d+)?)s", raw_delay)
+                if delay_match:
+                    candidate_delay = float(delay_match.group(1))
+                    if 0 < candidate_delay <= 20:
+                        retry_delay = candidate_delay
+            except (ValueError, TypeError, AttributeError):
+                pass
+        if retry_delay is None:
+            break
+        print(f"Gemini temporarily unavailable (HTTP {response.status_code}); retrying in {retry_delay:g}s")
+        time.sleep(retry_delay)
     try: payload = response.json()
     except ValueError: raise RuntimeError(f"Gemini returned non-JSON HTTP {response.status_code}: {response.text[:500]}")
-    if not response.ok or payload.get("error"): raise RuntimeError(f"Gemini HTTP {response.status_code}: {payload.get('error', {}).get('message', response.text[:500])}")
+    if not response.ok or payload.get("error"):
+        detail = json.dumps(payload.get("error", {}), ensure_ascii=False)
+        raise RuntimeError(f"Gemini HTTP {response.status_code}: {detail[:1200]}")
     candidates = payload.get("candidates") or []
     if not candidates: raise RuntimeError("Gemini produced no candidate: " + str(payload.get("promptFeedback", {}).get("blockReason", "unknown response")))
     parts_out = candidates[0].get("content", {}).get("parts", [])
@@ -81,11 +108,11 @@ def qa(root, slug):
     return issues, shots
 def critique(shots, name):
     parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
+    parts += [{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
     return gem(parts, js=True)
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
-    folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
+    folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []; ai_failure = ""
     base_html, base_info = fallback(d)
     br["selected_template"] = base_info.get("template_file") or base_info.get("template")
     try:
@@ -108,6 +135,8 @@ def make_site(d, root, slug, direction, fallback):
             issues, shots = qa(root, slug); c = critique(shots, d["name"]); sc = float(c.get("score", 0)) - 2 * len(issues); fixes = c.get("fixes", [])
             if sc > best[0]: best = (sc, html)
             if not issues and sc >= 8: break
-    except Exception as e: print("AI design failed:", str(e)[:100])
+    except Exception as e:
+        print("AI design failed:", str(e)[:500])
+        ai_failure = str(e)[:500]
     if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1), "template": base_info.get("template"), "template_file": base_info.get("template_file")}
-    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; info["ai_error"] = "AI improvement unavailable or below threshold; selected template used"; return h, info
+    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; info["ai_error"] = ai_failure or "AI improvement scored below threshold; selected template used"; return h, info
