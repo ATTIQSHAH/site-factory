@@ -1,5 +1,6 @@
 """Evidence-weighted business classification from a business website."""
 import re
+from urllib.parse import urljoin, urlparse
 
 RULES = {
     "coffee": {
@@ -71,3 +72,20 @@ def classify_business(name="", title="", description="", headings=(), menu_items
         "scores": scores,
         "evidence": evidence[best],
     }
+
+
+def extract_social_links(hrefs, base_url=""):
+    """Extract first-party Instagram and Facebook profile/page links from site anchors."""
+    found = {}
+    for href in hrefs or []:
+        absolute = urljoin(base_url, str(href or "").strip())
+        parsed = urlparse(absolute)
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        path = parsed.path.strip("/")
+        if not path or re.search(r"^(share|sharer|dialog|login|accounts|intent)(/|$)", path, re.I):
+            continue
+        if host in {"instagram.com", "m.instagram.com"} and "instagram" not in found:
+            found["instagram"] = absolute
+        elif host in {"facebook.com", "m.facebook.com", "fb.com"} and "facebook" not in found:
+            found["facebook"] = absolute
+    return found
