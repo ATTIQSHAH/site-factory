@@ -13,21 +13,45 @@ BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN",
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
 DAY = r"(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)"
 def menu_text(h):
-    s = BeautifulSoup(h, "html.parser")
-    for t in s(["script", "style", "nav", "footer", "header"]): t.decompose()
-    items, cur, seen = [], "", set()
-    for l in [x.strip() for x in s.get_text("\n").split("\n") if x.strip()]:
-        m = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", l)
-        if m:
-            nm = l[:m.start()].strip(" .-–·$|"); pr = " / ".join(re.sub(r"\s", "", p) for p in re.findall(r"\$\s?\d+(?:\.\d{2})?", m.group(1))[:2])
-            if 3 <= len(nm) <= 60 and len(re.findall(r"[A-Za-z]", nm)) >= 3 and "$" not in nm and not BAD.match(nm) and nm.lower() not in seen: seen.add(nm.lower()); items.append({"section": cur, "name": nm, "price": pr, "desc": ""})
-        elif 2 < len(l) < 30 and not re.search(r"\d|@|http", l): cur = l.title()
-        elif items and not items[-1]["desc"] and 15 < len(l) < 160 and "$" not in l: items[-1]["desc"] = l
+    soup = BeautifulSoup(h, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header"]): tag.decompose()
+    lines = [value.strip() for value in soup.get_text("\n").split("\n") if value.strip()]
+    items, current_section, seen = [], "", set()
+    for index, line in enumerate(lines):
+        match = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", line)
+        if match:
+            name = line[:match.start()].strip(" .-–·$|")
+            prices = re.findall(r"\$\s?\d+(?:\.\d{2})?", match.group(1))
+            if not name and index:
+                name = lines[index - 1].strip(" .-–·$|")
+            price = " / ".join(re.sub(r"\s", "", value) for value in prices[:2])
+            if 3 <= len(name) <= 80 and len(re.findall(r"[A-Za-z]", name)) >= 3 and not BAD.match(name) and name.lower() not in seen:
+                seen.add(name.lower())
+                items.append({"section": current_section or "Shop", "name": name, "price": price, "desc": ""})
+        elif 2 < len(line) < 30 and not re.search(r"\d|@|http", line):
+            current_section = line.title()
+        elif items and not items[-1]["desc"] and 15 < len(line) < 160 and "$" not in line:
+            items[-1]["desc"] = line
     return items[:24] if len(items) >= 5 else []
+
+
 def product_items_from_html(document):
-    """Read verifiable product names, prices and descriptions from Product JSON-LD."""
+    """Read verifiable product names, prices and descriptions from JSON-LD or product cards."""
     soup = BeautifulSoup(document or "", "html.parser")
     found, seen = [], set()
+
+    def add(name, price="", currency="", description="", section="Shop"):
+        name = re.sub(r"\s+", " ", str(name or "")).strip()
+        if not name or len(name) > 100 or name.lower() in seen:
+            return
+        seen.add(name.lower())
+        price_text = f"{currency} {price}".strip() if price else ""
+        found.append({
+            "section": str(section or "Shop"),
+            "name": name,
+            "price": price_text,
+            "desc": re.sub(r"\s+", " ", str(description or "")).strip()[:180],
+        })
 
     def visit(node):
         if isinstance(node, list):
@@ -36,26 +60,52 @@ def product_items_from_html(document):
             kind = node.get("@type", [])
             kinds = [kind] if isinstance(kind, str) else kind
             if any(str(value).lower() == "product" for value in kinds):
-                name = re.sub(r"\s+", " ", str(node.get("name") or "")).strip()
                 offers = node.get("offers") or {}
                 if isinstance(offers, list): offers = offers[0] if offers else {}
-                price = offers.get("price") or offers.get("lowPrice") or ""
-                currency = offers.get("priceCurrency") or ""
-                if name and name.lower() not in seen:
-                    seen.add(name.lower())
-                    found.append({
-                        "section": str(node.get("category") or "Shop"),
-                        "name": name[:80],
-                        "price": (f"{currency} {price}".strip() if price else ""),
-                        "desc": re.sub(r"\s+", " ", str(node.get("description") or "")).strip()[:180],
-                    })
+                add(node.get("name"), offers.get("price") or offers.get("lowPrice") or "",
+                    offers.get("priceCurrency") or "", node.get("description") or "",
+                    node.get("category") or "Shop")
             for value in node.values():
                 if isinstance(value, (dict, list)): visit(value)
 
     for script in soup.find_all("script", type="application/ld+json"):
         try: visit(json.loads(script.string or script.get_text()))
         except (ValueError, TypeError): continue
+
+    selectors = (
+        '[itemtype*="Product"]', '[data-testid*="product-card"]',
+        '[class*="product-card"]', '[class*="ProductCard"]',
+    )
+    for card in soup.select(",".join(selectors)):
+        name_node = card.select_one('[itemprop="name"], [class*="product-name"], [class*="ProductName"], h2, h3')
+        price_node = card.select_one('[itemprop="price"], [class*="price"], [class*="Price"]')
+        if name_node:
+            price = (price_node.get("content") or price_node.get_text(" ", strip=True)) if price_node else ""
+            currency = price_node.get("data-currency", "") if price_node else ""
+            desc_node = card.select_one('[itemprop="description"], [class*="description"], [class*="Description"]')
+            add(name_node.get_text(" ", strip=True), price, currency,
+                desc_node.get_text(" ", strip=True) if desc_node else "")
+
     return found[:24]
+
+
+def rendered_store_html(url):
+    """Use a real browser only as a fallback for JS-rendered online storefronts."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            try: page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception: pass
+            page.wait_for_timeout(1200)
+            document = page.content()
+            browser.close()
+            return document
+    except Exception as exc:
+        print("  rendered store fallback failed:", str(exc)[:160])
+        return ""
 
 
 def get_menu(soup, base, order_url=None):
@@ -79,15 +129,23 @@ def get_menu(soup, base, order_url=None):
         if (parsed_order.hostname or "").lower().endswith("square.site") and not parsed_order.path.rstrip("/").endswith("/s/shop"):
             candidates.append(urljoin(order_url.rstrip("/") + "/", "s/shop"))
         for candidate in dict.fromkeys(candidates):
+            document = ""
             try:
                 response = get(candidate)
-                page_items = product_items_from_html(response.text) or menu_text(response.text)
-                pages.append(BeautifulSoup(response.text, "html.parser"))
-                if page_items:
-                    items, link, src = page_items, candidate, "online_store"
-                    break
-            except Exception:
-                continue
+                document = response.text
+                print(f"  online store fetched: {candidate} ({response.status_code}, {len(document)} chars)")
+            except Exception as exc:
+                print(f"  online store request failed: {candidate} ({str(exc)[:100]})")
+            page_items = product_items_from_html(document) or menu_text(document) if document else []
+            if not page_items and (parsed_order.hostname or "").lower().endswith("square.site"):
+                document = rendered_store_html(candidate)
+                page_items = product_items_from_html(document) or menu_text(document) if document else []
+            if document:
+                pages.append(BeautifulSoup(document, "html.parser"))
+            if page_items:
+                items, link, src = page_items, candidate, "online_store"
+                print(f"  extracted {len(items)} online-store products")
+                break
 
     if not items:
         pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for page in pages
