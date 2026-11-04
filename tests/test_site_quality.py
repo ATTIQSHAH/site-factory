@@ -30,6 +30,15 @@ class SiteQualityTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertTrue(any("placeholder" in x for x in result["issues"]))
 
+    def test_empty_hero_and_junk_location_are_rejected(self):
+        html = BASE.format("Fresh pastries and cakes. " * 20).replace(
+            '<meta name="description" content="A bakery serving pastries, cakes and cookies made fresh every day.">', ""
+        ).replace("<h1>Fluff Bake Bar</h1>", '<h1>Fluff Bake Bar</h1><p></p><span class="chip">n</span>')
+        result = assess_html(html, business_name="Fluff Bake Bar", phone="(713) 522-1900")
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("empty description" in x for x in result["issues"]))
+        self.assertTrue(any("one-character" in x for x in result["issues"]))
+
     def test_missing_expected_phone_is_flagged(self):
         result = assess_html(BASE.format("Fresh pastries and cakes. " * 20).replace(
             "tel:+17135221900", "tel:+10000000000"),
