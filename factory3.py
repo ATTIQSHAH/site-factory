@@ -180,7 +180,26 @@ def hours_of(biz, text):
             rows.append((day, f"{clock(start)} to {clock(finish)}"))
     range_rows = [row for row in rows if " to " in row[0]]
     if range_rows:
-        return range_rows[:7]
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        abbreviations = {day[:3].lower(): day for day in day_names}
+        covered, selected_single_days = set(), set()
+        for day, _ in range_rows:
+            parts = [part.strip() for part in day.split(" to ", 1)]
+            if len(parts) == 2:
+                first = abbreviations.get(parts[0][:3].lower())
+                last = abbreviations.get(parts[1][:3].lower())
+                if first and last:
+                    a, b = day_names.index(first), day_names.index(last)
+                    covered.update(day_names[a:b + 1] if a <= b else day_names[a:] + day_names[:b + 1])
+        single_rows = []
+        for day, time in rows:
+            if " to " in day:
+                continue
+            normalized = abbreviations.get(day[:3].lower())
+            if normalized and normalized not in covered and normalized not in selected_single_days:
+                single_rows.append((normalized, time))
+                selected_single_days.add(normalized)
+        return (range_rows + single_rows)[:7]
     if len(rows) >= 3:
         return rows[:7]
     rows = []
