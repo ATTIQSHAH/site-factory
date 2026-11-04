@@ -1,0 +1,60 @@
+name: Fluff Bake Bar isolated demo review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "factory3.py"
+      - "review_site.py"
+      - ".github/workflows/fluff-demo-review.yml"
+      - "leads/input.csv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out this branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies and Chromium
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Generate only Fluff Bake Bar
+        run: python factory3.py leads/input.csv
+        env:
+          ONLY_WEBSITE: https://fluffbakebar.com/
+          MAX_PER_RUN: "1"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_DESIGN_MODEL: ${{ vars.GEMINI_DESIGN_MODEL || 'gemini-2.5-flash' }}
+          AI_DESIGN: ${{ vars.AI_DESIGN }}
+          BASE_URL: ""
+
+      - name: Capture mobile and desktop screenshots and run quality checks
+        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar
+
+      - name: Upload generated demo and review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluff-bake-bar-demo-review
+          path: |
+            sites/fluff-bake-bar/index.html
+            sites/fluff-bake-bar/img/**
+            review/fluff-bake-bar/**
+            results/websites_tab.csv
+          if-no-files-found: warn
+          retention-days: 14
