@@ -23,7 +23,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if not title:
         fail(15, "missing page title")
     elif business_name and business_name.lower() not in title.lower():
-        fail(8, "business name missing from page title")
+        fail(12, "business name missing from page title")
     if not description or len(description.get("content", "").strip()) < 60:
         fail(15, "missing or too-short meta description")
     if not viewport:
@@ -41,13 +41,13 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
 
     for hero_paragraph in soup.select(".hero p"):
         if not hero_paragraph.get_text(" ", strip=True):
-            fail(8, "hero section contains an empty description")
+            fail(12, "hero section contains an empty description")
             break
 
     for label in soup.select(".chip, .eyebrow"):
         fragments = re.split(r"[·|,]", label.get_text(" ", strip=True))
         if any(len(part.strip()) == 1 and part.strip().isalpha() for part in fragments):
-            fail(10, "suspicious one-character label or location")
+            fail(12, "suspicious one-character label or location")
             break
 
     has_menu_or_order = bool(soup.find(id="menu")) or any(
@@ -55,15 +55,15 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         for a in soup.find_all("a")
     )
     if not has_menu_or_order:
-        fail(8, "no menu, ordering, or reservation path")
+        fail(12, "no menu, ordering, or reservation path")
 
     if phone:
         digits = re.sub(r"\D", "", phone)
         page_digits = re.sub(r"\D", "", document or "")
         if len(digits) >= 7 and digits[-7:] not in page_digits:
-            fail(8, "lead phone number missing from generated page")
+            fail(15, "lead phone number missing from generated page")
         elif len(digits) >= 7 and not any(a.get("href", "").lower().startswith("tel:") for a in soup.find_all("a", href=True)):
-            fail(5, "phone is shown without a click-to-call link")
+            fail(10, "phone is shown without a click-to-call link")
 
     ids = {node.get("id") for node in soup.find_all(id=True)}
     for anchor in soup.find_all("a", href=True):
@@ -80,6 +80,6 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     return {
         "score": score,
         "passed": score >= 90 and not any("unresolved" in issue for issue in issues),
-        "status": "ready" if score >= 80 and not any("unresolved" in issue for issue in issues) else "needs_review",
+        "status": "ready" if score >= 90 and not any("unresolved" in issue for issue in issues) else "needs_review",
         "issues": issues,
     }
