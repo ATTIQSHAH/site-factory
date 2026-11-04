@@ -124,6 +124,7 @@ class BusinessIntelligenceTests(unittest.TestCase):
         items = menu_text(html)
         self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
         self.assertEqual(items[0]["price"], "$3.25")
+        self.assertEqual(items[0]["section"], "Cookies")
         self.assertEqual(items[-1]["desc"], "")
 
     def test_product_json_ld_extracts_real_menu_items_and_prices(self):
