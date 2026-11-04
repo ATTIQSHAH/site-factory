@@ -44,6 +44,7 @@ class SiteQualityTests(unittest.TestCase):
             "tel:+17135221900", "tel:+10000000000"),
             business_name="Fluff Bake Bar", phone="(713) 522-1900")
         self.assertTrue(any("phone number missing" in x for x in result["issues"]))
+        self.assertFalse(result["passed"])
 
 
 if __name__ == "__main__":
