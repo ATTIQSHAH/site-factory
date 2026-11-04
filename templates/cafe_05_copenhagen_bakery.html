@@ -124,7 +124,13 @@ a { color: inherit; }
         .m-dir { background: var(--bg2); color: var(--ink); border: 1px solid var(--line); }
     }
     
-</style>
+        @media (min-width: 901px) {
+            .hero { align-items: stretch; }
+            .bento-hero-left { min-height: 320px; padding: 2.5rem; }
+            .bento-hero-right { grid-template-rows: minmax(320px, 1fr); }
+            .bento-img-frame { min-height: 320px; height: 100%; }
+        }
+    </style>
 </head>
 <body class="hero-{{HERO}} theme-cafe_05_copenhagen_bakery pillar-cafe">
 
