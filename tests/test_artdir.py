@@ -23,6 +23,18 @@ class GeminiPayloadTests(unittest.TestCase):
         self.assertEqual(post.call_count, 2)
 
     @patch("artdir.requests.post")
+    def test_quota_exhausted_429_is_not_retried(self, post):
+        exhausted = SimpleNamespace(
+            ok=False, status_code=429, text="quota exhausted", headers={},
+            json=lambda: {"error": {"message": "quota exhausted", "details": []}},
+        )
+        post.return_value = exhausted
+        with patch.object(artdir, "KEY", "test-key"), patch.object(artdir.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "Gemini HTTP 429"):
+                artdir.gem([{"text": "test"}], js=True)
+        self.assertEqual(post.call_count, 1)
+
+    @patch("artdir.requests.post")
     def test_visual_critique_uses_current_gemini_rest_field_names(self, post):
         payload = {
             "candidates": [{
