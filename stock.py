@@ -23,6 +23,7 @@ CATEGORY_RULES = [
 SUBJECTS = {
     "restaurant": ["food", "interior", "exterior", "dining", "people", "detail"],
     "bakery": ["pastry", "bread", "cake", "interior", "coffee", "exterior"],
+    "grill": ["grill", "barbecue", "steak", "interior", "food", "exterior"],
     "cafe": ["interior", "coffee", "food", "lifestyle", "exterior", "detail"],
     "coffee": ["coffee", "interior", "barista", "beans", "food", "exterior"],
     "fastfood": ["burger", "pizza", "fried-chicken", "fries", "food", "interior", "exterior", "people"],
@@ -30,6 +31,7 @@ SUBJECTS = {
 CATEGORY_FALLBACKS = {
     "restaurant": ["restaurant", "shared"],
     "bakery": ["bakery", "cafe", "restaurant", "shared"],
+    "grill": ["grill", "restaurant", "shared"],
     "cafe": ["cafe", "coffee", "restaurant", "shared"],
     "coffee": ["coffee", "cafe", "restaurant", "shared"],
     "fastfood": ["fastfood", "restaurant", "grill", "shared"],
@@ -41,8 +43,8 @@ def business_category(name, render_kind="restaurant"):
     for category, pattern in CATEGORY_RULES:
         if pattern.search(text):
             return category
-    if render_kind == "coffee":
-        return "coffee"
+    if render_kind in CATEGORY_FALLBACKS:
+        return render_kind
     return "restaurant"
 
 
