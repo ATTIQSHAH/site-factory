@@ -23,6 +23,7 @@ RULES = {
         "patterns": (r"barbecue", r"\bbbq\b", r"smokehouse", r"steakhouse", r"grill", r"chophouse", r"brewpub"),
         "query": "grilled food",
     },
+    "restaurant": {"patterns": (), "query": "restaurant interior"},
 }
 SCHEMA_KIND = {
     "cafeorcoffeeshop": "cafe",
