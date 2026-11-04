@@ -1,7 +1,8 @@
 import unittest
 from business_intel import classify_business, extract_social_links
 from stock import business_category
-from factory3 import select_test_rows
+from bs4 import BeautifulSoup
+from factory3 import select_test_rows, hours_of, address_of, product_items_from_html
 
 
 class BusinessIntelligenceTests(unittest.TestCase):
@@ -74,6 +75,32 @@ class BusinessIntelligenceTests(unittest.TestCase):
     def test_batch_limit_remains_enforced_without_target(self):
         rows = [{"Website": f"https://shop{i}.example/"} for i in range(4)]
         self.assertEqual(len(select_test_rows(rows, limit=2)), 2)
+
+    def test_abbreviated_weekly_hours_are_parsed(self):
+        hours = hours_of({}, "Wednesday - Saturday 10a-7p Sunday 12p-7p")
+        self.assertEqual(hours, [
+            ("Wednesday to Saturday", "10 AM to 7 PM"),
+            ("Sunday", "12 PM to 7 PM"),
+        ])
+
+    def test_full_street_address_is_recovered_when_schema_only_has_city(self):
+        soup = BeautifulSoup("<p>Visit us at 1701 West 15th Street Houston, TX 77008</p>", "html.parser")
+        address, city = address_of(
+            {"address": "Houston TX 77008 United States"},
+            soup.get_text(" ", strip=True),
+            soup,
+        )
+        self.assertEqual(address, "1701 West 15th Street, Houston, TX 77008")
+        self.assertEqual(city, "Houston")
+
+    def test_product_json_ld_extracts_real_menu_items_and_prices(self):
+        html = """<script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Product","name":"Chocolate Chip Cookie",
+         "description":"Chocolate chip cookie","offers":{"price":"3.25","priceCurrency":"USD"}}
+        </script>"""
+        items = product_items_from_html(html)
+        self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
+        self.assertEqual(items[0]["price"], "USD 3.25")
 
     def test_unknown_business_defaults_safely(self):
         kind, query, info = classify_business(name="Something")
