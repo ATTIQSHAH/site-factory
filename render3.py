@@ -99,9 +99,9 @@ def build3(d):
     if not re.search(r"<meta[^>]+name=['\"]description['\"]", t, re.I):
         description = (short or "").strip()
         if has_menu:
-            description = (description + " " if description else "") + f"View the menu and visit information for {d['name']}."
+            description = (description + " " if description else "") + f"View the menu and visit information for {d['name']} on this website."
         elif d.get("address") or d.get("phone"):
-            description = (description + " " if description else "") + f"Find contact and visit information for {d['name']}."
+            description = (description + " " if description else "") + f"Find contact and visit information for {d['name']} on this website."
         else:
             description = f"Website concept for {d['name']}."
         t = re.sub(r"</title\s*>", lambda m: m.group(0) + f'<meta name="description" content="{E(description)}">', t, count=1, flags=re.I)
