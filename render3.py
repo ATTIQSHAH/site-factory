@@ -76,7 +76,7 @@ def build3(d):
         cards, current_section = [], None
         for item in d["menu"]:
             section_name = item.get("section") or "Menu"
-            if section_name != current_section:
+            if section_name not in {"Shop", "Menu"} and section_name != current_section:
                 cards.append(f'<h3 class="menu-section-title">{E(section_name)}</h3>')
                 current_section = section_name
             details = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
