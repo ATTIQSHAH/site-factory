@@ -133,13 +133,27 @@ def process(r, folder):
     d["grade"] = "A" if pts >= 6 else "B" if pts >= 4 else "C"; d["pts"] = pts
     flags = [x for x, bad in [("no own photos", own < 3), ("no menu", msrc in ("none", "link") and not items), ("no address", not addr), ("no logo", not logo)] if bad]
     return d, info, msrc, own, "ok" if not flags else "check: " + ", ".join(flags), html
+def select_test_rows(rows, only_website="", limit=30):
+    """Select a deterministic bounded set; an explicit URL must match exactly."""
+    selected = [r for r in rows if r.get("Website", "").strip()]
+    target = (only_website or "").strip().rstrip("/")
+    if target:
+        selected = [r for r in selected if r.get("Website", "").strip().rstrip("/") == target]
+        if not selected:
+            raise ValueError(f"ONLY_WEBSITE did not exactly match a Website in the lead CSV: {target}")
+        return selected[:1]
+    return selected[:max(1, int(limit))]
+
+
 def main(src):
     rows = list(csv.DictReader(open(src, encoding="utf-8-sig"))); done = {}
     if os.path.exists(RES): done = {r["Website"]: r for r in csv.DictReader(open(RES, encoding="utf-8"))}
     for r in done.values(): r["batch"] = r.get("batch") or "1"
     USED.update(r.get("theme") for r in done.values() if r.get("theme") in artdir.DIRS)
     n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch = []; used = {r.get("site_path") for r in done.values()}
-    for r in [x for x in rows if x.get("Website") and x["Website"] not in done][:int(os.getenv("MAX_PER_RUN", "30"))]:
+    candidates = [x for x in rows if x.get("Website") and x["Website"] not in done]
+    selected = select_test_rows(candidates, os.getenv("ONLY_WEBSITE", ""), int(os.getenv("MAX_PER_RUN", "30")))
+    for r in selected:
         res = dict(r); name = r.get("Name") or r["Website"]; s = slug(name); k = 2; b0 = s
         while f"/{s}/" in used: s = f"{b0}-{k}"; k += 1
         used.add(f"/{s}/")
