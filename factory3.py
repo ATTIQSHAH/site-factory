@@ -25,6 +25,7 @@ def menu_text(h):
             prices = re.findall(r"\$\s?\d+(?:\.\d{2})?", match.group(1))
             if not name and index:
                 name = lines[index - 1].strip(" .-–·$|")
+            if name.islower(): name = name.title()
             price = " / ".join(re.sub(r"\s", "", value) for value in prices[:2])
             if 3 <= len(name) <= 80 and len(re.findall(r"[A-Za-z]", name)) >= 3 and not BAD.match(name) and name.lower() not in seen:
                 seen.add(name.lower())
