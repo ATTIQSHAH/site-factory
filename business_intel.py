@@ -7,7 +7,7 @@ RULES = {
         "query": "coffee shop",
     },
     "bakery": {
-        "patterns": (r"bakery", r"\\bbake(?:ry)?\\b", r"patisserie", r"pastry", r"croissant", r"bread\s*(?:shop|company|bakery)?", r"sourdough", r"cakes?\s*(?:and|&)\s*desserts?", r"macaron", r"donut"),
+        "patterns": (r"bakery", r"\bbake(?:ry)?\b", r"patisserie", r"pastry", r"croissant", r"bread\s*(?:shop|company|bakery)?", r"sourdough", r"cakes?\s*(?:and|&)\s*desserts?", r"macaron", r"donut"),
         "query": "bakery pastries",
     },
     "cafe": {
