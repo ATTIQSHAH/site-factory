@@ -262,8 +262,29 @@ def process(r, folder):
     addr, city = address_of(biz, text, soup)
     city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
     if sum(ch.isalpha() for ch in city) < 3: city = ""
-    order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\\.com|square\\.site|clover\\.com|order\\.|/order", a["href"], re.I)), None)
+    order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True)
+                  if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     items, menu_url, msrc = get_menu(soup, base, order)
+    hours = hours_of(biz, text)
+    if not hours or not items or not addr:
+        rendered = rendered_store_html(base)
+        if rendered:
+            rendered_soup = BeautifulSoup(rendered, "html.parser")
+            rendered_text = rendered_soup.get_text("\n")
+            if not addr:
+                addr, city = address_of(biz, rendered_text, rendered_soup)
+            if not hours:
+                hours = hours_of(biz, rendered_text)
+            if not items:
+                browser_items, browser_menu_url, browser_source = get_menu(rendered_soup, base, order)
+                if browser_items:
+                    items, menu_url, msrc = browser_items, browser_menu_url or menu_url, browser_source
+            if not about:
+                rendered_meta = (rendered_soup.find("meta", attrs={"property": "og:description"}) or rendered_soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
+                if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I):
+                    about = rendered_meta
+    city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
+    if sum(ch.isalpha() for ch in city) < 3: city = ""
     headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
     kind, q, classification = classify_business(name, page_title, about, headings, items, biz.get("@type", []))
     socials = extract_social_links((a.get("href") for a in soup.find_all("a", href=True)), base)
@@ -285,7 +306,7 @@ def process(r, folder):
     if stock_ph:
         print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours, "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram") or socials.get("instagram", ""), "fb": r.get("Facebook") or socials.get("facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
