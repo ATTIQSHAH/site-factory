@@ -30,7 +30,6 @@ def menu_text(h):
                 items.append({"section": current_section or "Shop", "name": name, "price": price, "desc": ""})
         elif 2 < len(line) < 30 and not re.search(r"\d|@|http", line):
             current_section = line.title()
-            items[-1]["desc"] = line
     return items[:24] if len(items) >= 5 else []
 
 
