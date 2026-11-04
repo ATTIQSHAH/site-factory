@@ -38,7 +38,8 @@ def niche(n):
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
     template_file, template_meta = select_template(d.get("kind", "restaurant"), d.get("name", ""), d.get("about", ""), d.get("menu", []))
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file), encoding="utf-8").read()
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file), encoding="utf-8") as template_handle:
+        t = template_handle.read()
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
