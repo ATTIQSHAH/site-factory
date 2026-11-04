@@ -87,6 +87,15 @@ class BusinessIntelligenceTests(unittest.TestCase):
             "Wednesday - Saturday 10a-7p Sunday 12p-7p",
         )
         self.assertEqual(partial_schema_hours, hours)
+        conflicting_schema_hours = hours_of(
+            {"openingHours": [
+                "Wednesday-Saturday 10:00-19:00", "Sunday 12:00-19:00",
+                "We 10:00-18:00", "Th 10:00-18:00", "Fr 10:00-18:00",
+                "Sa 10:00-18:00", "Su 12:00-17:00",
+            ]},
+            "",
+        )
+        self.assertEqual(conflicting_schema_hours, hours)
 
     def test_full_street_address_is_recovered_when_schema_only_has_city(self):
         soup = BeautifulSoup("<p>Visit us at 1701 West 15th Street Houston, TX 77008</p>", "html.parser")
@@ -109,6 +118,7 @@ class BusinessIntelligenceTests(unittest.TestCase):
         items = menu_text(html)
         self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
         self.assertEqual(items[0]["price"], "$3.25")
+        self.assertEqual(items[-1]["desc"], "")
 
     def test_product_json_ld_extracts_real_menu_items_and_prices(self):
         html = """<script type="application/ld+json">
