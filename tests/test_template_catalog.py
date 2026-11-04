@@ -45,6 +45,11 @@ class TemplateCatalogueTests(unittest.TestCase):
                 self.assertNotRegex(html, r'\{\{[A-Z0-9_]+\}\}', row['file'])
                 self.assertNotRegex(html, r'<p[^>]*>\s*</p>', row['file'])
                 self.assertRegex(html, r'<meta name="description"', row['file'])
+                self.assertRegex(html, r'<meta name="robots"[^>]+noindex', row['file'])
+                self.assertNotRegex(html, r'<div class="story-content">\\s*<section', row['file'])
+                self.assertNotRegex(html, r'<div class="menu-container">\\s*<section', row['file'])
+                self.assertNotRegex(html, r'<div class="gallery-container">\\s*<section', row['file'])
+                self.assertNotRegex(html, r'<div class="visit-hours-content">\\s*<section', row['file'])
                 self.assertEqual(info['template_file'], row['file'])
         finally:
             render3.select_template = original_selector
