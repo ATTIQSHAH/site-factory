@@ -82,6 +82,11 @@ class BusinessIntelligenceTests(unittest.TestCase):
             ("Wednesday to Saturday", "10 AM to 7 PM"),
             ("Sunday", "12 PM to 7 PM"),
         ])
+        partial_schema_hours = hours_of(
+            {"openingHours": ["Sunday 12:00-19:00"]},
+            "Wednesday - Saturday 10a-7p Sunday 12p-7p",
+        )
+        self.assertEqual(partial_schema_hours, hours)
 
     def test_full_street_address_is_recovered_when_schema_only_has_city(self):
         soup = BeautifulSoup("<p>Visit us at 1701 West 15th Street Houston, TX 77008</p>", "html.parser")
