@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "factory3.py"
+      - "artdir.py"
+      - "media.py"
       - "render3.py"
       - "templates/**"
       - "review_site.py"
