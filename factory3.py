@@ -221,7 +221,36 @@ def hours_of(biz, text):
         rows.append((day, f"{normalize_time(match.group(2))} to {normalize_time(match.group(3))}"))
         if len(rows) == 7: break
     rows = list(dict.fromkeys(rows))
-    return rows if len(rows) >= 3 or any(re.search(r"\bto\b", day, re.I) for day, _ in rows) else []
+    range_rows = [row for row in rows if re.search(r"\bto\b", row[0], re.I)]
+    if range_rows:
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        abbreviations = {day[:3].lower(): day for day in day_names}
+        covered, selected_single_days = set(), set()
+        for day, _ in range_rows:
+            parts = re.split(r"\s+to\s+", day, maxsplit=1, flags=re.I)
+            if len(parts) == 2:
+                first = abbreviations.get(parts[0][:3].lower())
+                last = abbreviations.get(parts[1][:3].lower())
+                if first and last:
+                    a, b = day_names.index(first), day_names.index(last)
+                    covered.update(day_names[a:b + 1] if a <= b else day_names[a:] + day_names[:b + 1])
+        singles = []
+        for day, time in rows:
+            if re.search(r"\bto\b", day, re.I):
+                continue
+            normalized = abbreviations.get(day[:3].lower())
+            if normalized and normalized not in covered and normalized not in selected_single_days:
+                singles.append((normalized, time))
+                selected_single_days.add(normalized)
+        return (range_rows + singles)[:7]
+    unique = []
+    seen_days = set()
+    for day, time in rows:
+        normalized = day_names[0] if False else day
+        if normalized not in seen_days:
+            unique.append((normalized, time))
+            seen_days.add(normalized)
+    return unique if len(unique) >= 3 else []
 
 
 def address_of(biz, text, soup=None):
