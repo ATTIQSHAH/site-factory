@@ -7,7 +7,7 @@ from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
 from render3 import build3, niche
-from business_intel import classify_business
+from business_intel import classify_business, extract_social_links
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
 BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN", "30"))
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
@@ -92,6 +92,7 @@ def process(r, folder):
     items, menu_url, msrc = get_menu(soup, base)
     headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
     kind, q, classification = classify_business(name, page_title, about, headings, items, biz.get("@type", []))
+    socials = extract_social_links((a.get("href") for a in soup.find_all("a", href=True)), base)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
     if not lg:
         lg = next((i["src"] for i in soup.find_all("img") if i.get("src") and re.search("logo", " ".join([*(i.get("class") or []), i.get("id") or "", i.get("alt") or "", i["src"]]), re.I)), None)
@@ -111,7 +112,7 @@ def process(r, folder):
         print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
+         "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram") or socials.get("instagram", ""), "fb": r.get("Facebook") or socials.get("facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
