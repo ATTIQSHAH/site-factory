@@ -44,6 +44,7 @@ class TemplateCatalogueTests(unittest.TestCase):
                 html, info = render3.build3(data)
                 self.assertNotRegex(html, r'\{\{[A-Z0-9_]+\}\}', row['file'])
                 self.assertNotRegex(html, r'<p[^>]*>\s*</p>', row['file'])
+                self.assertRegex(html, r'<meta name="description"', row['file'])
                 self.assertEqual(info['template_file'], row['file'])
         finally:
             render3.select_template = original_selector
