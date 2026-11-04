@@ -27,11 +27,11 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if not description or len(description.get("content", "").strip()) < 60:
         fail(15, "missing or too-short meta description")
     if not viewport:
-        fail(10, "missing mobile viewport")
+        fail(12, "missing mobile viewport")
     if require_noindex and (not robots or "noindex" not in robots.get("content", "").lower()):
-        fail(10, "missing noindex directive")
+        fail(12, "missing noindex directive")
     if not soup.find("h1"):
-        fail(8, "missing primary heading")
+        fail(12, "missing primary heading")
     if len(visible) < 250:
         fail(20, "page contains too little readable content")
     if business_name and business_name.lower() not in visible:
@@ -63,7 +63,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         if len(digits) >= 7 and digits[-7:] not in page_digits:
             fail(15, "lead phone number missing from generated page")
         elif len(digits) >= 7 and not any(a.get("href", "").lower().startswith("tel:") for a in soup.find_all("a", href=True)):
-            fail(10, "phone is shown without a click-to-call link")
+            fail(12, "phone is shown without a click-to-call link")
 
     ids = {node.get("id") for node in soup.find_all(id=True)}
     for anchor in soup.find_all("a", href=True):
