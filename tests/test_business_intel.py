@@ -1,5 +1,6 @@
 import unittest
 from business_intel import classify_business
+from stock import business_category
 
 
 class BusinessIntelligenceTests(unittest.TestCase):
@@ -23,6 +24,10 @@ class BusinessIntelligenceTests(unittest.TestCase):
         )
         self.assertEqual(kind, "bakery")
 
+    def test_fluff_bake_bar_name_is_classified_as_bakery(self):
+        kind, _, _ = classify_business(name="Fluff Bake Bar")
+        self.assertEqual(kind, "bakery")
+
     def test_menu_supports_fast_food_classification(self):
         kind, _, _ = classify_business(
             name="The Local Kitchen",
@@ -37,6 +42,10 @@ class BusinessIntelligenceTests(unittest.TestCase):
         )
         self.assertEqual(kind, "cafe")
         self.assertTrue(any(x["source"] == "structured_data" for x in info["evidence"]))
+
+    def test_stock_category_uses_classifier_when_name_is_generic(self):
+        self.assertEqual(business_category("Copper Creek Restaurant", "grill"), "grill")
+        self.assertEqual(business_category("Fluff Bake Bar", "bakery"), "bakery")
 
     def test_unknown_business_defaults_safely(self):
         kind, query, info = classify_business(name="Something")
