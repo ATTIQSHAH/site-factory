@@ -1,6 +1,6 @@
 """v3: lead CSV -> real extraction (photos, logo, menu incl. AI reading, address, hours) -> themed premium site -> audit -> results CSV."""
 import csv, json, os, re, sys, time
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 import media, artdir, stock
 from collections import Counter
@@ -125,7 +125,7 @@ def get_menu(soup, base, order_url=None):
 
     if not items and order_url:
         candidates = [order_url]
-        parsed_order = up.urlparse(order_url)
+        parsed_order = urlparse(order_url)
         if (parsed_order.hostname or "").lower().endswith("square.site") and not parsed_order.path.rstrip("/").endswith("/s/shop"):
             candidates.append(urljoin(order_url.rstrip("/") + "/", "s/shop"))
         for candidate in dict.fromkeys(candidates):
