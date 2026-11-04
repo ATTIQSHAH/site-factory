@@ -22,6 +22,8 @@ for row in rows:
     url = row.get("site_url", "").strip()
     if not url:
         continue
+    if row.get("live_status") == "live" and row.get("quality_score"):
+        continue
     status, quality = inspect(url, row)
     row["live_status"] = status
     row["quality_score"] = str(quality["score"])
