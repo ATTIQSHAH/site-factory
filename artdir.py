@@ -98,7 +98,7 @@ def make_site(d, root, slug, direction, fallback):
                 html = gem([{"text": prompt}], RULES)
             html = re.sub(r"<p\b[^>]*>\s*</p>", "", html, flags=re.I)
             if not re.search(r"<meta[^>]+name=['\"]description['\"]", html, re.I):
-                description = (d.get("about") or "").strip() or f"Website concept for {d['name']}."
+                description = (d.get("about") or "").strip() or f"Website concept for {d['name']}. View contact and visit details on this website."
                 html = re.sub(r"</title\s*>", lambda m: m.group(0) + '<meta name="description" content="' + html_lib.escape(description, quote=True) + '">', html, count=1, flags=re.I)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
