@@ -16,6 +16,17 @@ def safe_acc(acc, bg, ink):
     t = 0
     while cr(acc, bg) < 4.5 and t < 1: t += .1; acc = mix(acc, ink, t)
     return acc
+def logo_markup(logo, name, page_bg):
+    """Keep transparent logos legible without forcing a mismatched background."""
+    if not logo:
+        return name
+    path, tone = logo
+    needs_chip = (tone == "light" and lum(page_bg) > 0.45) or (tone == "dark" and lum(page_bg) < 0.45)
+    image = f'<img src="{E(path)}" alt="{name} logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none">'
+    if not needs_chip:
+        return image
+    chip = "#171210" if tone == "light" else "#ffffff"
+    return f'<span class="logo-contrast" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;background:{chip};border-radius:5px">{image}</span>'
 def niche(n):
     n = n.lower()
     if re.search(r"coffee|roast|espresso|roastery|cappuccino", n): return "coffee", "coffee shop"
@@ -53,7 +64,7 @@ def build3(d):
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n} logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none">' if d.get("logo") else n
+    lg = logo_markup(d.get("logo"), n, bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
