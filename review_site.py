@@ -43,6 +43,8 @@ def main():
                     wait_until="networkidle",
                     timeout=60000,
                 )
+                page.evaluate("document.querySelectorAll('.rv').forEach(e => { e.classList.add('on'); e.style.opacity = '1'; e.style.transform = 'none'; })")
+                page.wait_for_timeout(250)
                 page.screenshot(path=str(report_dir / f"{label}.png"), full_page=True)
                 horizontal_overflow = page.evaluate(
                     "document.documentElement.scrollWidth > window.innerWidth + 2"
