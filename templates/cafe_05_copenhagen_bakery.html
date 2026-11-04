@@ -146,22 +146,19 @@ a { color: inherit; }
 <section class="hero" id="top">
 
     <div class="bento-hero-left rv">
-        <div class="pillar-badge"><span>{{EYEBROW}}</span> · Wild Yeast · Cultured Danish Butter</div>
+        <div class="pillar-badge"><span>{{EYEBROW}}</span></div>
         <h1 class="hero-title">{{NAME}}</h1>
         <p class="hero-lead">{{ABOUT_SHORT}}</p>
         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-            <a href="#{{CTA1}}" class="btn-main">Morning Bakes</a>
-            <a href="tel:{{TEL}}" class="btn-alt">Direct Line</a>
+            <a href="#{{CTA1}}" class="btn-main">{{CTA1T}}</a>
+            <a href="tel:{{TEL}}" class="btn-alt">Call</a>
         </div>
     </div>
     <div class="bento-hero-right rv">
         <div class="bento-img-frame">
             <img src="{{HEROIMG}}" alt="{{NAME}} showcase">
         </div>
-        <div class="bento-quote-frame">
-            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.4rem; font-family: var(--disp);">Fresh Batch Roasted & Baked Daily</div>
-            <div style="color: var(--mut); font-size: 0.95rem;">Experience seasonal ingredients and dedicated hospitality curated every morning.</div>
-        </div>
+        {{HERO_NOTE}}
     </div>
 
 </section>
@@ -173,8 +170,8 @@ a { color: inherit; }
 <section id="about" class="rv">
     <div class="section-header">
         <span class="section-tag">Authentic Craft</span>
-        <h2 class="section-title">The Philosophy Behind {{NAME}}</h2>
-        <p class="section-intro">Honoring genuine ingredients, slow preparation, and neighborly warmth.</p>
+        <h2 class="section-title">About {{NAME}}</h2>
+        <p class="section-intro">{{ABOUT_SHORT}}</p>
     </div>
     <div class="story-card-grid">
         <div class="story-content">{{STORY}}</div>
@@ -188,8 +185,8 @@ a { color: inherit; }
 <section id="menu" class="rv">
     <div class="section-header">
         <span class="section-tag">Curated Offerings</span>
-        <h2 class="section-title">Featured Menu & Specialties</h2>
-        <p class="section-intro">Prepared fresh daily with seasonal harvests and time-honored recipes.</p>
+        <h2 class="section-title">Menu at {{NAME}}</h2>
+        <p class="section-intro">{{MENU_INTRO}}</p>
     </div>
     <div class="menu-container">
         {{MENU}}
@@ -201,7 +198,7 @@ a { color: inherit; }
     <div class="section-header">
         <span class="section-tag">Ambiance</span>
         <h2 class="section-title">A Look Inside</h2>
-        <p class="section-intro">A glimpse into our kitchen, dining room, and daily creations.</p>
+        <p class="section-intro">Photos from {{NAME}}.</p>
     </div>
     <div class="gallery-container">
         {{GALLERY}}
@@ -213,11 +210,11 @@ a { color: inherit; }
     <div class="section-header">
         <span class="section-tag">Join Us</span>
         <h2 class="section-title">Hours & Location</h2>
-        <p class="section-intro">Walk-ins always welcome. We look forward to serving you.</p>
+        <p class="section-intro">Contact and location details.</p>
     </div>
     <div class="visit-hub">
         <div>
-            <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem; font-family: var(--disp);">Service Hours</h3>
+            <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem; font-family: var(--disp);">Visit & Contact</h3>
             <div class="visit-hours-content">{{VISIT}}</div>
             <div style="margin-top: 2.2rem;">
                 <a href="{{DIR}}" target="_blank" rel="noopener" class="btn-main">Get Directions on Maps</a>
