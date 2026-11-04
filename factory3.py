@@ -82,7 +82,7 @@ def photos_of(soup, base, folder):
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip()
+    name = r.get("Name") or ((soup.title.get_text(" ", strip=True) if soup.title else "") .split("|")[0].strip() or u)
     page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
