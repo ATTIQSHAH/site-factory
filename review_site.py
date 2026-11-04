@@ -9,6 +9,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 from site_quality import assess_html
+from bs4 import BeautifulSoup
+import re
 
 
 def main():
@@ -71,12 +73,30 @@ def main():
 
     html = index.read_text(encoding="utf-8")
     quality = assess_html(html, "Fluff Bake Bar", "(713) 522-1900")
+    soup = BeautifulSoup(html, "html.parser")
+    visible_text = soup.get_text(" ", strip=True)
+    menu_item_count = len(soup.select(".menu-card"))
+    hours_row_count = len(soup.select(".hours-list tr"))
+    has_street_address = bool(re.search(
+        r"\\b\\d{1,6}\\s+[A-Za-z0-9 .'-]+\\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\\b",
+        visible_text, re.I
+    ))
+    has_click_to_call = bool(soup.select_one('a[href^="tel:"]'))
+    data_checks = {
+        "menu_item_count": menu_item_count,
+        "has_menu_items": menu_item_count >= 5,
+        "hours_row_count": hours_row_count,
+        "has_opening_hours": hours_row_count >= 1,
+        "has_street_address": has_street_address,
+        "has_click_to_call": has_click_to_call,
+    }
     report = {
         "business": "Fluff Bake Bar",
         "source_website": "https://fluffbakebar.com/",
         "quality": quality,
+        "data_checks": data_checks,
         "browser_checks": checks,
-        "passed": quality["passed"] and all(
+        "passed": quality["passed"] and all(data_checks.values()) and all(
             not c["horizontal_overflow"] and not c["broken_images"] and not c["javascript_errors"]
             for c in checks
         ),
