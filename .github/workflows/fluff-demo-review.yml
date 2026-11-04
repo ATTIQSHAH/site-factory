@@ -41,7 +41,7 @@ jobs:
           ONLY_WEBSITE: https://fluffbakebar.com/
           MAX_PER_RUN: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_DESIGN_MODEL: ${{ vars.GEMINI_DESIGN_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_DESIGN_MODEL: gemini-3.8-flash
           AI_DESIGN: ${{ vars.AI_DESIGN }}
           BASE_URL: ""
 
