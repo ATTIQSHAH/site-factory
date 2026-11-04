@@ -30,7 +30,6 @@ def menu_text(h):
                 items.append({"section": current_section or "Shop", "name": name, "price": price, "desc": ""})
         elif 2 < len(line) < 30 and not re.search(r"\d|@|http", line):
             current_section = line.title()
-        elif items and not items[-1]["desc"] and 15 < len(line) < 160 and "$" not in line:
             items[-1]["desc"] = line
     return items[:24] if len(items) >= 5 else []
 
@@ -179,7 +178,10 @@ def hours_of(biz, text):
                 suffix = "AM" if hour < 12 else "PM"
                 return f"{hour % 12 or 12}{':' + str(minute).zfill(2) if minute else ''} {suffix}"
             rows.append((day, f"{clock(start)} to {clock(finish)}"))
-    if rows and (len(rows) >= 3 or any(" to " in day for day, _ in rows)):
+    range_rows = [row for row in rows if " to " in row[0]]
+    if range_rows:
+        return range_rows[:7]
+    if len(rows) >= 3:
         return rows[:7]
     rows = []
 
