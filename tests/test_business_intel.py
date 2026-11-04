@@ -1,6 +1,7 @@
 import unittest
 from business_intel import classify_business, extract_social_links
 from stock import business_category
+from factory3 import select_test_rows
 
 
 class BusinessIntelligenceTests(unittest.TestCase):
@@ -55,6 +56,24 @@ class BusinessIntelligenceTests(unittest.TestCase):
         ], "https://fluffbakebar.com/")
         self.assertEqual(found["instagram"], "https://www.instagram.com/fluffbakebar/")
         self.assertEqual(found["facebook"], "https://m.facebook.com/FluffHouston")
+
+    def test_single_website_selection_is_exact_and_bounded(self):
+        rows = [
+            {"Name": "Fluff Bake Bar", "Website": "https://fluffbakebar.com/"},
+            {"Name": "Other Bakery", "Website": "https://other.example/"},
+        ]
+        selected = select_test_rows(rows, "https://fluffbakebar.com", limit=15)
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["Name"], "Fluff Bake Bar")
+
+    def test_unknown_target_fails_instead_of_processing_another_lead(self):
+        rows = [{"Name": "Other Bakery", "Website": "https://other.example/"}]
+        with self.assertRaises(ValueError):
+            select_test_rows(rows, "https://fluffbakebar.com", limit=15)
+
+    def test_batch_limit_remains_enforced_without_target(self):
+        rows = [{"Website": f"https://shop{i}.example/"} for i in range(4)]
+        self.assertEqual(len(select_test_rows(rows, limit=2)), 2)
 
     def test_unknown_business_defaults_safely(self):
         kind, query, info = classify_business(name="Something")
