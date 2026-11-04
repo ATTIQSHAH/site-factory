@@ -1,5 +1,5 @@
 """AI art director: picks a distinct design direction, has Gemini build a bespoke page from REAL facts/assets, then renders it, checks it, and revises."""
-import base64, io, json, os, re, threading, time, functools, http.server, socketserver
+import base64, html as html_lib, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
 KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
@@ -30,7 +30,7 @@ HARD RULES
 - Buttons are always solid-filled with readable text, never transparent over images.
 - No emojis, no generic phrases (welcome to, passion for, culinary journey, unforgettable), no gradient blobs or glassmorphism, no lorem ipsum.
 - Mobile-first and fluid (clamp() type, no horizontal scroll), tap targets at least 44px, sticky call/directions bar on mobile.
-- Include when data exists: name or logo, tel: link, address with Google Maps link and embedded map iframe, hours, menu (all given items, grouped by section) or a button to menu_url, order button, social links, <meta name=robots content=noindex>, and a small fixed bar reading "Demo website concept for NAME".
+- Include when data exists: name or logo, a factual meta description, tel: link, address with Google Maps link and embedded map iframe, hours, menu (all given items, grouped by section) or a button to menu_url, order button, social links, <meta name=robots content=noindex>, and a small fixed bar reading "Demo website concept for NAME".
 - Follow the DESIGN DIRECTION strictly; compose a layout and section order that is distinct to this direction. Derive colours from the direction and the supplied dominant colours.
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
@@ -96,6 +96,9 @@ def make_site(d, root, slug, direction, fallback):
             else:
                 prompt = "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)
                 html = gem([{"text": prompt}], RULES)
+            if not re.search(r"<meta[^>]+name=['\"]description['\"]", html, re.I):
+                description = (d.get("about") or "").strip() or f"Website concept for {d['name']}."
+                html = re.sub(r"</title\\s*>", lambda m: m.group(0) + '<meta name="description" content="' + html_lib.escape(description, quote=True) + '">', html, count=1, flags=re.I)
             if d.get("has_stock_photos") and "illustrative stock photography" not in html.lower():
                 note = '<p class="stock-note" style="text-align:center;font-size:.78rem;opacity:.75;padding:12px">Some imagery is illustrative stock photography.</p>'
                 html = re.sub(r"</body\s*>", lambda m: note + m.group(0), html, flags=re.I) if re.search(r"</body\s*>", html, re.I) else html + note
