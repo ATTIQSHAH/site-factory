@@ -78,7 +78,7 @@ def main():
     menu_item_count = len(soup.select(".menu-card"))
     hours_row_count = len(soup.select(".hours-list tr"))
     has_street_address = bool(re.search(
-        r"\\b\\d{1,6}\\s+[A-Za-z0-9 .'-]+\\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\\b",
+        r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b",
         visible_text, re.I
     ))
     has_click_to_call = bool(soup.select_one('a[href^="tel:"]'))
