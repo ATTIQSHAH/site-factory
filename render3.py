@@ -103,5 +103,5 @@ def build3(d):
             description = (description + " " if description else "") + f"Find contact and visit information for {d['name']}."
         else:
             description = f"Website concept for {d['name']}."
-        t = re.sub(r"</title\\s*>", lambda m: m.group(0) + f'<meta name="description" content="{E(description)}">', t, count=1, flags=re.I)
+        t = re.sub(r"</title\s*>", lambda m: m.group(0) + f'<meta name="description" content="{E(description)}">', t, count=1, flags=re.I)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template": template_meta["id"], "template_file": template_file}
