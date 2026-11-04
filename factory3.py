@@ -200,7 +200,7 @@ def hours_of(biz, text):
         rows.append((day, f"{normalize_time(match.group(2))} to {normalize_time(match.group(3))}"))
         if len(rows) == 7: break
     rows = list(dict.fromkeys(rows))
-    return rows if len(rows) >= 3 or any(re.search(r"\\bto\\b", day, re.I) for day, _ in rows) else []
+    return rows if len(rows) >= 3 or any(re.search(r"\bto\b", day, re.I) for day, _ in rows) else []
 
 
 def address_of(biz, text, soup=None):
