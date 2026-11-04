@@ -246,7 +246,7 @@ def hours_of(biz, text):
     unique = []
     seen_days = set()
     for day, time in rows:
-        normalized = day_names[0] if False else day
+        normalized = day
         if normalized not in seen_days:
             unique.append((normalized, time))
             seen_days.add(normalized)
