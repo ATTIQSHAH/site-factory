@@ -134,6 +134,8 @@ class BusinessIntelligenceTests(unittest.TestCase):
         items = product_items_from_html(html)
         self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
         self.assertEqual(items[0]["price"], "USD 3.25")
+        lowercase = product_items_from_html('<script type="application/ld+json">{"@type":"Product","name":"pumpkin pie","offers":{"price":"5.00"}}</script>')
+        self.assertEqual(lowercase[0]["name"], "Pumpkin Pie")
 
     def test_unknown_business_defaults_safely(self):
         kind, query, info = classify_business(name="Something")
