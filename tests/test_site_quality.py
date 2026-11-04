@@ -33,7 +33,7 @@ class SiteQualityTests(unittest.TestCase):
     def test_empty_hero_and_junk_location_are_rejected(self):
         html = BASE.format("Fresh pastries and cakes. " * 20).replace(
             '<meta name="description" content="A bakery serving pastries, cakes and cookies made fresh every day.">', ""
-        ).replace("<h1>Fluff Bake Bar</h1>", '<h1>Fluff Bake Bar</h1><p></p><span class="chip">n</span>')
+        ).replace("<h1>Fluff Bake Bar</h1>", '<h1>Fluff Bake Bar</h1>').replace("</header>", '</header><section class="hero"><p></p><span class="chip">n</span></section>')
         result = assess_html(html, business_name="Fluff Bake Bar", phone="(713) 522-1900")
         self.assertFalse(result["passed"])
         self.assertTrue(any("empty description" in x for x in result["issues"]))
