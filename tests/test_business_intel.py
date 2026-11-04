@@ -94,11 +94,13 @@ class BusinessIntelligenceTests(unittest.TestCase):
         self.assertEqual(city, "Houston")
 
     def test_storefront_separate_product_and_price_lines_are_combined(self):
-        html = "<div>Cookies</div><div>Chocolate Chip Cookie</div><div>$3.25</div>" \\
-               "<div>Fluffernutter Cookie</div><div>$4.00</div>" \\
-               "<div>Unicorn Bait Cookie</div><div>$3.75</div>" \\
-               "<div>Couch Potato Cookie</div><div>$3.50</div>" \\
-               "<div>Brownie Bar</div><div>$4.25</div>"
+        html = (
+            "<div>Cookies</div><div>Chocolate Chip Cookie</div><div>$3.25</div>"
+            "<div>Fluffernutter Cookie</div><div>$4.00</div>"
+            "<div>Unicorn Bait Cookie</div><div>$3.75</div>"
+            "<div>Couch Potato Cookie</div><div>$3.50</div>"
+            "<div>Brownie Bar</div><div>$4.25</div>"
+        )
         items = menu_text(html)
         self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
         self.assertEqual(items[0]["price"], "$3.25")
