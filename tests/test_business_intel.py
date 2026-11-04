@@ -2,7 +2,7 @@ import unittest
 from business_intel import classify_business, extract_social_links
 from stock import business_category
 from bs4 import BeautifulSoup
-from factory3 import select_test_rows, hours_of, address_of, product_items_from_html
+from factory3 import select_test_rows, hours_of, address_of, product_items_from_html, menu_text
 
 
 class BusinessIntelligenceTests(unittest.TestCase):
@@ -92,6 +92,16 @@ class BusinessIntelligenceTests(unittest.TestCase):
         )
         self.assertEqual(address, "1701 West 15th Street, Houston, TX 77008")
         self.assertEqual(city, "Houston")
+
+    def test_storefront_separate_product_and_price_lines_are_combined(self):
+        html = "<div>Cookies</div><div>Chocolate Chip Cookie</div><div>$3.25</div>" \\
+               "<div>Fluffernutter Cookie</div><div>$4.00</div>" \\
+               "<div>Unicorn Bait Cookie</div><div>$3.75</div>" \\
+               "<div>Couch Potato Cookie</div><div>$3.50</div>" \\
+               "<div>Brownie Bar</div><div>$4.25</div>"
+        items = menu_text(html)
+        self.assertEqual(items[0]["name"], "Chocolate Chip Cookie")
+        self.assertEqual(items[0]["price"], "$3.25")
 
     def test_product_json_ld_extracts_real_menu_items_and_prices(self):
         html = """<script type="application/ld+json">
