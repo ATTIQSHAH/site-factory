@@ -136,11 +136,13 @@ def hours_of(biz, text):
         return f"{shown_hour}{':' + minute if minute else ''} {'AM' if meridiem == 'A' else 'PM'}"
 
     for match in re.finditer(pattern, text, re.I):
-        day = re.sub(r"\s*(?:-|–|through)\s*", " to ", match.group(1).strip()).title()
+        day = re.sub(r"\s*(?:-|–|through)\s*", " to ", match.group(1).strip())
+        day = re.sub(r"\bto\b", "to", day, flags=re.I)
+        day = day.title().replace(" To ", " to ")
         rows.append((day, f"{normalize_time(match.group(2))} to {normalize_time(match.group(3))}"))
         if len(rows) == 7: break
     rows = list(dict.fromkeys(rows))
-    return rows if len(rows) >= 3 or any(" to " in day for day, _ in rows) else []
+    return rows if len(rows) >= 3 or any(re.search(r"\\bto\\b", day, re.I) for day, _ in rows) else []
 
 
 def address_of(biz, text, soup=None):
