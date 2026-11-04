@@ -62,7 +62,7 @@ def build3(d):
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
-    show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
+    show_story = bool(rest or (fi and template_file == "premium.html")); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     story_anchor = "story" if template_file == "premium.html" else "about"
     secs = [(story_anchor, "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
@@ -76,7 +76,7 @@ def build3(d):
         cards, current_section = [], None
         for item in d["menu"]:
             section_name = item.get("section") or "Menu"
-            if section_name not in {"Shop", "Menu"} and section_name != current_section:
+            if section_name not in {"Shop", "Menu", "View All Items"} and section_name != current_section:
                 cards.append(f'<h3 class="menu-section-title">{E(section_name)}</h3>')
                 current_section = section_name
             details = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
@@ -112,6 +112,10 @@ def build3(d):
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     if not has_menu:
         t = re.sub(r'<section\b(?=[^>]*\bid=["\']menu["\'])[^>]*>.*?</section>', "", t, flags=re.I | re.S)
+    if not show_story:
+        story_section_id = "story" if template_file == "premium.html" else "about"
+        story_pattern = r'<section\b(?=[^>]*\bid=["\']' + re.escape(story_section_id) + r'["\'])[^>]*>.*?</section>'
+        t = re.sub(story_pattern, "", t, flags=re.I | re.S)
     if len(ph) < 4:
         t = re.sub(r'<section\b(?=[^>]*\bid=["\']gallery["\'])[^>]*>.*?</section>', "", t, flags=re.I | re.S)
     t = re.sub(r"<p\b[^>]*>\s*</p>", "", t, flags=re.I)
