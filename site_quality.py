@@ -24,8 +24,8 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         fail(15, "missing page title")
     elif business_name and business_name.lower() not in title.lower():
         fail(8, "business name missing from page title")
-    if not description or len(description.get("content", "").strip()) < 40:
-        fail(10, "missing or too-short meta description")
+    if not description or len(description.get("content", "").strip()) < 60:
+        fail(15, "missing or too-short meta description")
     if not viewport:
         fail(10, "missing mobile viewport")
     if require_noindex and (not robots or "noindex" not in robots.get("content", "").lower()):
@@ -38,6 +38,24 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         fail(15, "business name not present in page content")
     if re.search(r"\{\{[A-Z0-9_]+\}\}|lorem ipsum|undefined|null", document or "", re.I):
         fail(20, "unresolved placeholder or generated filler detected")
+
+    for hero_paragraph in soup.select(".hero p"):
+        if not hero_paragraph.get_text(" ", strip=True):
+            fail(8, "hero section contains an empty description")
+            break
+
+    for label in soup.select(".chip, .eyebrow"):
+        fragments = re.split(r"[·|,]", label.get_text(" ", strip=True))
+        if any(len(part.strip()) == 1 and part.strip().isalpha() for part in fragments):
+            fail(10, "suspicious one-character label or location")
+            break
+
+    has_menu_or_order = bool(soup.find(id="menu")) or any(
+        re.search(r"menu|order|reservation|book a table", a.get_text(" ", strip=True), re.I)
+        for a in soup.find_all("a")
+    )
+    if not has_menu_or_order:
+        fail(8, "no menu, ordering, or reservation path")
 
     if phone:
         digits = re.sub(r"\D", "", phone)
@@ -61,7 +79,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     score = max(0, min(100, score))
     return {
         "score": score,
-        "passed": score >= 80 and not any("unresolved" in issue for issue in issues),
+        "passed": score >= 90 and not any("unresolved" in issue for issue in issues),
         "status": "ready" if score >= 80 and not any("unresolved" in issue for issue in issues) else "needs_review",
         "issues": issues,
     }
