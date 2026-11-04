@@ -179,8 +179,9 @@ def hours_of(biz, text):
                 suffix = "AM" if hour < 12 else "PM"
                 return f"{hour % 12 or 12}{':' + str(minute).zfill(2) if minute else ''} {suffix}"
             rows.append((day, f"{clock(start)} to {clock(finish)}"))
-    if rows:
-        return rows[:7] if len(rows) >= 3 or any(" to " in day for day, _ in rows) else []
+    if rows and (len(rows) >= 3 or any(" to " in day for day, _ in rows)):
+        return rows[:7]
+    rows = []
 
     time_range = r"(\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?)\s*(?:-|–|to)\s*(\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?)"
     pattern = rf"({DAY}(?:\s*(?:-|–|to|through)\s*{DAY})?)\s*[:\-]?\s*{time_range}"
