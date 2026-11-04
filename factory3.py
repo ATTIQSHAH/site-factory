@@ -30,8 +30,10 @@ def menu_text(h):
             if 3 <= len(name) <= 80 and len(re.findall(r"[A-Za-z]", name)) >= 3 and not BAD.match(name) and name.lower() not in seen:
                 seen.add(name.lower())
                 items.append({"section": current_section or "Shop", "name": name, "price": price, "desc": ""})
-        elif 2 < len(line) < 30 and not re.search(r"\d|@|http", line):
-            current_section = line.title()
+        elif 2 < len(line) < 30 and not re.search(r"\\d|@|http", line):
+            next_is_price = index + 1 < len(lines) and bool(re.fullmatch(r"\\$\\s?\\d+(?:\\.\\d{2})?", lines[index + 1]))
+            if not next_is_price:
+                current_section = line.title()
     return items[:24] if len(items) >= 5 else []
 
 
