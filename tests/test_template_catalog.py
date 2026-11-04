@@ -21,6 +21,14 @@ class TemplateCatalogueTests(unittest.TestCase):
                 self.assertTrue(filename.startswith(('fast_', 'rest_')), (kind, filename))
             self.assertEqual(metadata['file'], filename)
 
+    def test_logo_background_is_added_only_when_contrast_requires_it(self):
+        light = render3.logo_markup(("img/logo.png", "light"), "Brand", "#f6f1e9")
+        dark = render3.logo_markup(("img/logo.png", "dark"), "Brand", "#171210")
+        visible = render3.logo_markup(("img/logo.png", "dark"), "Brand", "#f6f1e9")
+        self.assertIn("background:#171210", light)
+        self.assertIn("background:#ffffff", dark)
+        self.assertNotIn("logo-contrast", visible)
+
     def test_every_template_renders_without_unresolved_tokens(self):
         original_selector = render3.select_template
         data = {
