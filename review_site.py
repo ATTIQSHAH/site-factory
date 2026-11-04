@@ -44,6 +44,7 @@ def main():
                     timeout=60000,
                 )
                 page.evaluate("document.querySelectorAll('.rv').forEach(e => { e.classList.add('on'); e.style.opacity = '1'; e.style.transform = 'none'; })")
+                page.evaluate("async () => { const imgs = [...document.images]; imgs.forEach(img => img.loading = 'eager'); await Promise.all(imgs.map(img => img.decode().catch(() => null))); }")
                 page.wait_for_timeout(250)
                 page.screenshot(path=str(report_dir / f"{label}.png"), full_page=True)
                 horizontal_overflow = page.evaluate(
