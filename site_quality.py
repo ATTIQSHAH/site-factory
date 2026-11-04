@@ -36,7 +36,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         fail(20, "page contains too little readable content")
     if business_name and business_name.lower() not in visible:
         fail(15, "business name not present in page content")
-    if re.search(r"\\{\\{[A-Z0-9_]+\\}\\}", document or "") or re.search(r"\\blorem ipsum\\b|\\bundefined\\b|\\bnull\\b", visible, re.I):
+    if re.search(r"\{\{[A-Z0-9_]+\}\}", document or "") or re.search(r"\blorem ipsum\b|\bundefined\b|\bnull\b", visible, re.I):
         fail(20, "unresolved placeholder or generated filler detected")
 
     for hero_paragraph in soup.select(".hero p"):
