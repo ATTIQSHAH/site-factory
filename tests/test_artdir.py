@@ -22,6 +22,7 @@ class GeminiPayloadTests(unittest.TestCase):
         self.assertEqual(result, {"ok": True})
         self.assertEqual(post.call_count, 2)
 
+    @patch("artdir.requests.post")
     def test_visual_critique_uses_current_gemini_rest_field_names(self, post):
         payload = {
             "candidates": [{
