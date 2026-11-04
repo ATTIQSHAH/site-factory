@@ -69,34 +69,54 @@ def build3(d):
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
-        facts = "".join(f'<div class="fact"><b>{E(a)}</b><span>{E(b)}</span></div>' for a, b in fi)
-        img = f'<div class="imgf rv"><img src="{E(ph[1] if len(ph) > 1 else ph[0])}" alt="{n}"></div>' if ph else ""
-        story = f'<section id="story"><div class="wrap two {"flip" if seed % 2 else ""}"><div class="rv"><span class="eyebrow">About</span><h2>{"Our story" if rest else "The essentials"}</h2>{para}<div class="facts">{facts}</div></div>{img}</div></section>'
+        facts = "".join(f'<div class="fact"><b>{E(label)}</b><span>{E(value)}</span></div>' for label, value in fi)
+        story = (f'<p class="story-copy">{E(rest)}</p>' if rest else "") + (f'<div class="facts">{facts}</div>' if facts else "")
     if d["menu"]:
-        out, cur = "", None
-        for i in d["menu"]:
-            s = i.get("section") or "Menu"
-            if s != cur: out += f"<h3>{E(s)}</h3>"; cur = s
-            out += f'<div class="it"><div><span>{E(i["name"])}</span><span>{E(i.get("price") or "")}</span></div>' + (f'<small>{E(i["desc"])}</small>' if i.get("desc") else "") + "</div>"
-        link = f'<a class="btn s" href="{E(d["menu_url"])}" target="_blank" rel="noopener">Full menu</a>' if d.get("menu_url") else ""
-        menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>From the kitchen</h2></div><div class="menu rv">{out}</div>{link}</div></section>'
-    elif d.get("menu_url"):
-        bgi = f"style=\"background-image:url('{E(ph[-1])}')\"" if ph else ""; nc = "" if ph else " nophoto"
-        menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
-    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[:4]) + "</div></div></section>"
+        cards, current_section = [], None
+        for item in d["menu"]:
+            section_name = item.get("section") or "Menu"
+            if section_name != current_section:
+                cards.append(f'<h3 class="menu-section-title">{E(section_name)}</h3>')
+                current_section = section_name
+            details = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
+            cards.append(
+                '<article class="menu-card"><div class="menu-card-top">'
+                f'<span class="menu-item-title">{E(item["name"])}</span>'
+                f'<span class="menu-item-price-tag">{E(item.get("price") or "")}</span>'
+                f'</div>{details}</article>'
+            )
+        menu = '<div class="menu-layout">' + "".join(cards) + "</div>"
+    if d.get("menu_url"):
+        menu += f'<p class="menu-link"><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></p>'
+    if len(ph) >= 4:
+        gal = '<div class="gallery-showcase">' + "".join(
+            f'<figure class="gallery-item"><img src="{E(p)}" alt="{E(d["name"])} photo" loading="lazy"></figure>'
+            for p in ph[:6]
+        ) + "</div>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
-    left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
-    right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
-    visit = f'<section class="alt" id="visit"><div class="wrap {"two" if right else ""}"><div class="rv"><span class="eyebrow">Visit</span><h2>Plan your visit</h2>{left}</div>{right}</div></section>'
+    hours_table = f'<table class="hours-list"><tbody>{hrs}</tbody></table>' if hrs else ""
+    contact = (f'<p class="visit-address">{E(d["address"])}</p>' if d.get("address") else "")
+    contact += f'<p><a class="btn-alt" href="tel:{tel}">Call {E(d["phone"])}</a></p>' if d.get("phone") else ""
+    contact += f'<p><a class="btn-alt" href="mailto:{E(d["email"])}">Email</a></p>' if d.get("email") else ""
+    visit = hours_table + contact
     order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(d["order_url"])}" target="_blank" rel="noopener">Order online</a></div></div>' if d.get("order_url") else ""
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", d.get("ig")), ("Facebook", d.get("fb"))] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
-           "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
+           "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "View menu" if has_menu else "Visit", "CHIPS": chips,
+           "HERO_NOTE": f'<div class="bento-quote-frame"><div style="font-weight:700;font-size:1.1rem;margin-bottom:.4rem;font-family:var(--disp)">{E(n)}</div><div style="color:var(--mut);font-size:.95rem">{E(short)}</div></div>' if short else "", "MENU_INTRO": "View the published menu." if d.get("menu_url") else "",
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
+    if not has_menu:
+        t = re.sub(r'<section\b(?=[^>]*\bid=["\']menu["\'])[^>]*>.*?</section>', "", t, flags=re.I | re.S)
+    if len(ph) < 4:
+        t = re.sub(r'<section\b(?=[^>]*\bid=["\']gallery["\'])[^>]*>.*?</section>', "", t, flags=re.I | re.S)
     t = re.sub(r"<p\b[^>]*>\s*</p>", "", t, flags=re.I)
+    if not re.search(r'<meta[^>]+name=["\']robots["\']', t, re.I):
+        t = re.sub(r"</head\s*>", '<meta name="robots" content="noindex,nofollow">\n</head>', t, count=1, flags=re.I)
+    safety_css = "<style>html,body{max-width:100%;overflow-x:clip}*,*::before,*::after{min-width:0}img,video,iframe{max-width:100%}.menu-layout,.gallery-showcase{grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr))}.story-content,.visit-hub,.story-card-grid{min-width:0}.facts{display:grid;gap:.7rem;margin-top:1.2rem}.fact{display:flex;gap:.6rem;flex-wrap:wrap}.menu-section-title{grid-column:1/-1;margin-top:1rem}.menu-link{margin-top:1.5rem}</style>"
+    t = re.sub(r"</head\s*>", safety_css + "</head>", t, count=1, flags=re.I)
     if not re.search(r"<meta[^>]+name=['\"]description['\"]", t, re.I):
         description = (short or "").strip()
         if has_menu:
