@@ -95,4 +95,13 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
+    if not re.search(r"<meta[^>]+name=['\"]description['\"]", t, re.I):
+        description = (short or "").strip()
+        if has_menu:
+            description = (description + " " if description else "") + f"View the menu and visit information for {d['name']}."
+        elif d.get("address") or d.get("phone"):
+            description = (description + " " if description else "") + f"Find contact and visit information for {d['name']}."
+        else:
+            description = f"Website concept for {d['name']}."
+        t = re.sub(r"</title\\s*>", lambda m: m.group(0) + f'<meta name="description" content="{E(description)}">', t, count=1, flags=re.I)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template": template_meta["id"], "template_file": template_file}
