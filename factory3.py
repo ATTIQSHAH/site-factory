@@ -1,5 +1,5 @@
 """v3: lead CSV -> real extraction (photos, logo, menu incl. AI reading, address, hours) -> themed premium site -> audit -> results CSV."""
-import csv, os, re, sys, time
+import csv, json, os, re, sys, time
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 import media, artdir, stock
@@ -7,6 +7,7 @@ from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
 from render3 import build3, niche
+from business_intel import classify_business, extract_social_links
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
 BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN", "30"))
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
@@ -52,11 +53,22 @@ def hours_of(biz, text):
         if len(rows) == 7: break
     rows = list(dict.fromkeys(rows))
     return rows if len(rows) >= 3 or any(" to " in r[0] or "–" in r[0] or "-" in r[0] for r in rows) else []  # hide fragments, never show wrong hours
-def address_of(biz, text):
-    a = biz.get("address") if isinstance(biz.get("address"), dict) else {}
-    if a.get("streetAddress"): return ", ".join(str(a[x]) for x in ("streetAddress", "addressLocality", "addressRegion", "postalCode") if a.get(x)), a.get("addressLocality", "")
-    m = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
-    return (re.sub(r"\s+", " ", m.group(1)), m.group(2).strip()) if m else ("", "")
+def address_of(biz, text, soup=None):
+    raw = biz.get("address")
+    if isinstance(raw, str) and len(raw.strip()) >= 8:
+        return re.sub(r"\s+", " ", raw).strip(), ""
+    address = raw if isinstance(raw, dict) else {}
+    if any(address.get(key) for key in ("streetAddress", "addressLocality", "addressRegion")):
+        parts = [address.get(key) for key in ("streetAddress", "addressLocality", "addressRegion", "postalCode", "addressCountry")]
+        return ", ".join(str(part).strip() for part in parts if part), str(address.get("addressLocality", ""))
+    if soup is not None:
+        node = soup.find("address")
+        if node:
+            value = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+            if 8 <= len(value) <= 220:
+                return value, ""
+    match = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
+    return (re.sub(r"\s+", " ", match.group(1)), match.group(2).strip()) if match else ("", "")
 def photos_of(soup, base, folder):
     c = []
     for m in soup.find_all("meta", attrs={"property": re.compile("og:image|twitter:image")}): c.append(m.get("content"))
@@ -81,13 +93,17 @@ def photos_of(soup, base, folder):
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip(); kind, q = niche(name)
+    name = r.get("Name") or ((soup.title.get_text(" ", strip=True) if soup.title else "") .split("|")[0].strip() or u)
+    page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
-    addr, city = address_of(biz, text)
-    city = re.sub(r"[^A-Za-z .-]", "", str(city or "")).strip()
-    if len(re.sub(r"[^A-Za-z]", "", city)) < 3: city = ""
+    addr, city = address_of(biz, text, soup)
+    city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
+    if sum(ch.isalpha() for ch in city) < 3: city = ""
     items, menu_url, msrc = get_menu(soup, base)
+    headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
+    kind, q, classification = classify_business(name, page_title, about, headings, items, biz.get("@type", []))
+    socials = extract_social_links((a.get("href") for a in soup.find_all("a", href=True)), base)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
     if not lg:
         lg = next((i["src"] for i in soup.find_all("img") if i.get("src") and re.search("logo", " ".join([*(i.get("class") or []), i.get("id") or "", i.get("alt") or "", i["src"]]), re.I)), None)
@@ -107,7 +123,7 @@ def process(r, folder):
         print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
+         "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram") or socials.get("instagram", ""), "fb": r.get("Facebook") or socials.get("facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
@@ -129,7 +145,7 @@ def main(src):
         used.add(f"/{s}/")
         try:
             d, info, msrc, own, qa, html = process(r, f"{OUT}/{s}"); perf, seo, iss, fix = audit(r["Website"], get(r["Website"]).text)
-            res.update({"fetch_status": "ok", "template": info.get("template_file") or info.get("template") or d["kind"], "business_niche": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
+            res.update({"fetch_status": "ok", "template": info.get("template_file") or info.get("template") or d["kind"], "business_niche": d["kind"], "business_subcategory": d.get("subcategory", d["kind"]), "classification_confidence": d.get("classification_confidence", 0), "classification_evidence": json.dumps(d.get("classification_evidence", []), ensure_ascii=False), "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
                         "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "ai_error": info.get("ai_error", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
         res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[r["Website"]] = res; batch.append(res); print(name, res["fetch_status"], res.get("qa_flag")); time.sleep(2)

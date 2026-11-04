@@ -16,6 +16,17 @@ def safe_acc(acc, bg, ink):
     t = 0
     while cr(acc, bg) < 4.5 and t < 1: t += .1; acc = mix(acc, ink, t)
     return acc
+def logo_markup(logo, name, page_bg):
+    """Keep transparent logos legible without forcing a mismatched background."""
+    if not logo:
+        return name
+    path, tone = logo
+    needs_chip = (tone == "light" and lum(page_bg) > 0.45) or (tone == "dark" and lum(page_bg) < 0.45)
+    image = f'<img src="{E(path)}" alt="{name} logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none">'
+    if not needs_chip:
+        return image
+    chip = "#171210" if tone == "light" else "#ffffff"
+    return f'<span class="logo-contrast" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;background:{chip};border-radius:5px">{image}</span>'
 def niche(n):
     n = n.lower()
     if re.search(r"coffee|roast|espresso|roastery|cappuccino", n): return "coffee", "coffee shop"
@@ -27,7 +38,8 @@ def niche(n):
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
     template_file, template_meta = select_template(d.get("kind", "restaurant"), d.get("name", ""), d.get("about", ""), d.get("menu", []))
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file), encoding="utf-8").read()
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file), encoding="utf-8") as template_handle:
+        t = template_handle.read()
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
@@ -53,7 +65,7 @@ def build3(d):
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n} logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none">' if d.get("logo") else n
+    lg = logo_markup(d.get("logo"), n, bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
@@ -84,4 +96,14 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
+    t = re.sub(r"<p\b[^>]*>\s*</p>", "", t, flags=re.I)
+    if not re.search(r"<meta[^>]+name=['\"]description['\"]", t, re.I):
+        description = (short or "").strip()
+        if has_menu:
+            description = (description + " " if description else "") + f"View the menu and visit information for {d['name']} on this website."
+        elif d.get("address") or d.get("phone"):
+            description = (description + " " if description else "") + f"Find contact and visit information for {d['name']} on this website."
+        else:
+            description = f"Website concept for {d['name']}."
+        t = re.sub(r"</title\s*>", lambda m: m.group(0) + f'<meta name="description" content="{E(description)}">', t, count=1, flags=re.I)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template": template_meta["id"], "template_file": template_file}

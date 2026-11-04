@@ -21,6 +21,14 @@ class TemplateCatalogueTests(unittest.TestCase):
                 self.assertTrue(filename.startswith(('fast_', 'rest_')), (kind, filename))
             self.assertEqual(metadata['file'], filename)
 
+    def test_logo_background_is_added_only_when_contrast_requires_it(self):
+        light = render3.logo_markup(("img/logo.png", "light"), "Brand", "#f6f1e9")
+        dark = render3.logo_markup(("img/logo.png", "dark"), "Brand", "#171210")
+        visible = render3.logo_markup(("img/logo.png", "dark"), "Brand", "#f6f1e9")
+        self.assertIn("background:#171210", light)
+        self.assertIn("background:#ffffff", dark)
+        self.assertNotIn("logo-contrast", visible)
+
     def test_every_template_renders_without_unresolved_tokens(self):
         original_selector = render3.select_template
         data = {
@@ -35,6 +43,8 @@ class TemplateCatalogueTests(unittest.TestCase):
                 render3.select_template = lambda *args, _row=row, **kwargs: (_row['file'], _row)
                 html, info = render3.build3(data)
                 self.assertNotRegex(html, r'\{\{[A-Z0-9_]+\}\}', row['file'])
+                self.assertNotRegex(html, r'<p[^>]*>\s*</p>', row['file'])
+                self.assertRegex(html, r'<meta name="description"', row['file'])
                 self.assertEqual(info['template_file'], row['file'])
         finally:
             render3.select_template = original_selector

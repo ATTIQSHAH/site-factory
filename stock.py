@@ -15,18 +15,23 @@ import media
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 CATEGORY_RULES = [
+    ("bakery", re.compile(r"bakery|patisserie|pastry|croissant|sourdough|macaron|donut|cake shop", re.I)),
     ("fastfood", re.compile(r"fast[\s-]?food|burger|hamburger|pizza|pizzeria|fried chicken|wings|taco|tacos|fries|hotdog|hot dog|kebab|shawarma", re.I)),
     ("coffee", re.compile(r"coffee|espresso|roast|roastery|cappuccino|latte", re.I)),
     ("cafe", re.compile(r"cafe|café|bistro|brunch", re.I)),
 ]
 SUBJECTS = {
     "restaurant": ["food", "interior", "exterior", "dining", "people", "detail"],
+    "bakery": ["pastry", "bread", "cake", "interior", "coffee", "exterior"],
+    "grill": ["grill", "barbecue", "steak", "interior", "food", "exterior"],
     "cafe": ["interior", "coffee", "food", "lifestyle", "exterior", "detail"],
     "coffee": ["coffee", "interior", "barista", "beans", "food", "exterior"],
     "fastfood": ["burger", "pizza", "fried-chicken", "fries", "food", "interior", "exterior", "people"],
 }
 CATEGORY_FALLBACKS = {
     "restaurant": ["restaurant", "shared"],
+    "bakery": ["bakery", "cafe", "restaurant", "shared"],
+    "grill": ["grill", "restaurant", "shared"],
     "cafe": ["cafe", "coffee", "restaurant", "shared"],
     "coffee": ["coffee", "cafe", "restaurant", "shared"],
     "fastfood": ["fastfood", "restaurant", "grill", "shared"],
@@ -38,8 +43,8 @@ def business_category(name, render_kind="restaurant"):
     for category, pattern in CATEGORY_RULES:
         if pattern.search(text):
             return category
-    if render_kind == "coffee":
-        return "coffee"
+    if render_kind in CATEGORY_FALLBACKS:
+        return render_kind
     return "restaurant"
 
 
