@@ -35,7 +35,7 @@ HARD RULES
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
+    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
     response = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240)
     try: payload = response.json()
@@ -81,7 +81,7 @@ def qa(root, slug):
     return issues, shots
 def critique(shots, name):
     parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
+    parts += [{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
     return gem(parts, js=True)
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
