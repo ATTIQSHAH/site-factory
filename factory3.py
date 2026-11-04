@@ -53,11 +53,22 @@ def hours_of(biz, text):
         if len(rows) == 7: break
     rows = list(dict.fromkeys(rows))
     return rows if len(rows) >= 3 or any(" to " in r[0] or "–" in r[0] or "-" in r[0] for r in rows) else []  # hide fragments, never show wrong hours
-def address_of(biz, text):
-    a = biz.get("address") if isinstance(biz.get("address"), dict) else {}
-    if a.get("streetAddress"): return ", ".join(str(a[x]) for x in ("streetAddress", "addressLocality", "addressRegion", "postalCode") if a.get(x)), a.get("addressLocality", "")
-    m = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
-    return (re.sub(r"\s+", " ", m.group(1)), m.group(2).strip()) if m else ("", "")
+def address_of(biz, text, soup=None):
+    raw = biz.get("address")
+    if isinstance(raw, str) and len(raw.strip()) >= 8:
+        return re.sub(r"\s+", " ", raw).strip(), ""
+    address = raw if isinstance(raw, dict) else {}
+    if any(address.get(key) for key in ("streetAddress", "addressLocality", "addressRegion")):
+        parts = [address.get(key) for key in ("streetAddress", "addressLocality", "addressRegion", "postalCode", "addressCountry")]
+        return ", ".join(str(part).strip() for part in parts if part), str(address.get("addressLocality", ""))
+    if soup is not None:
+        node = soup.find("address")
+        if node:
+            value = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+            if 8 <= len(value) <= 220:
+                return value, ""
+    match = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
+    return (re.sub(r"\s+", " ", match.group(1)), match.group(2).strip()) if match else ("", "")
 def photos_of(soup, base, folder):
     c = []
     for m in soup.find_all("meta", attrs={"property": re.compile("og:image|twitter:image")}): c.append(m.get("content"))
@@ -86,9 +97,9 @@ def process(r, folder):
     page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
-    addr, city = address_of(biz, text)
-    city = re.sub(r"[^A-Za-z .-]", "", str(city or "")).strip()
-    if len(re.sub(r"[^A-Za-z]", "", city)) < 3: city = ""
+    addr, city = address_of(biz, text, soup)
+    city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
+    if sum(ch.isalpha() for ch in city) < 3: city = ""
     items, menu_url, msrc = get_menu(soup, base)
     headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
     kind, q, classification = classify_business(name, page_title, about, headings, items, biz.get("@type", []))
