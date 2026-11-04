@@ -63,7 +63,8 @@ def build3(d):
     rest = rest if len(rest) >= 40 else ""
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
-    secs = [("story", "About")] if show_story else []
+    story_anchor = "story" if template_file == "premium.html" else "about"
+    secs = [(story_anchor, "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
     lg = logo_markup(d.get("logo"), n, bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
