@@ -37,7 +37,19 @@ def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
     body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    response = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240)
+    response = None
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
+    for attempt in range(3):
+        response = requests.post(endpoint, json=body, timeout=240)
+        if response.status_code not in (429, 500, 502, 503, 504) or attempt == 2:
+            break
+        retry_after = response.headers.get("Retry-After", "")
+        try:
+            delay = min(max(float(retry_after), 1), 20)
+        except (TypeError, ValueError):
+            delay = 2 ** (attempt + 1)
+        print(f"Gemini temporarily unavailable (HTTP {response.status_code}); retrying in {delay:g}s")
+        time.sleep(delay)
     try: payload = response.json()
     except ValueError: raise RuntimeError(f"Gemini returned non-JSON HTTP {response.status_code}: {response.text[:500]}")
     if not response.ok or payload.get("error"): raise RuntimeError(f"Gemini HTTP {response.status_code}: {payload.get('error', {}).get('message', response.text[:500])}")
