@@ -21,6 +21,7 @@ def menu_text(h):
         match = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", line)
         if match:
             name = line[:match.start()].strip(" .-–·$|")
+            if name.islower(): name = name.title()
             prices = re.findall(r"\$\s?\d+(?:\.\d{2})?", match.group(1))
             if not name and index:
                 name = lines[index - 1].strip(" .-–·$|")
@@ -40,6 +41,7 @@ def product_items_from_html(document):
 
     def add(name, price="", currency="", description="", section="Shop"):
         name = re.sub(r"\s+", " ", str(name or "")).strip()
+        if name.islower(): name = name.title()
         if not name or len(name) > 100 or name.lower() in seen:
             return
         seen.add(name.lower())
