@@ -10,12 +10,19 @@ on:
       - "render3.py"
       - "templates/**"
       - "review_site.py"
+      - "site_quality.py"
+      - "business_intel.py"
+      - "template_catalog.py"
       - ".github/workflows/fluff-demo-review.yml"
       - "leads/input.csv"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: fluff-bake-bar-demo
+  cancel-in-progress: true
 
 jobs:
   generate-and-review:
