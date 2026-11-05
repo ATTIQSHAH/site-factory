@@ -124,7 +124,12 @@ def build3(d):
     left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
     right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
     visit = f'<section class="alt" id="visit"><div class="wrap {"two" if right else ""}"><div class="rv"><span class="eyebrow">Visit</span><h2>Plan your visit</h2>{left}</div>{right}</div></section>'
-    order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(order_url)}" target="_blank" rel="noopener">Order online</a></div></div>' if order_url else ""
+    if template_file == "premium.html":
+        order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(order_url)}" target="_blank" rel="noopener">Order online</a></div></div>' if order_url else ""
+    else:
+        target_url = order_url or menu_url
+        action_label = "Order online" if order_url else "View the menu"
+        order = ('<div class="cta-hub"><h2>Ready to explore the menu?</h2><p>Check current offerings and ordering details directly with ' + n + '.</p><a class="btn-main" href="' + E(target_url) + '" target="_blank" rel="noopener">' + action_label + '</a></div>') if target_url else ""
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", ig), ("Facebook", fb)] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
@@ -164,8 +169,8 @@ def build3(d):
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[2:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn,
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
-           "MENU_INTRO": E("Published menu details and prices are shown where available."),
-           "MAP_FRAME": ('<div class="map-frame"><iframe src="https://maps.google.com/maps?q=' + q + '&output=embed" loading="lazy" title="Map to ' + n + '"></iframe></div>') if d.get("address") else ""}
+           "MENU_INTRO": E("Featured items from the published menu.") if d.get("menu") else E("Explore the full menu and current ordering options."),
+           "MAP_FRAME": ('<div class="map-frame" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:var(--bg2)"><div><span class="section-tag">Find us</span><p>' + E(d["city"] or d["address"]) + '</p><a class="btn-main" href="' + E(dirn) + '" target="_blank" rel="noopener">Open in Maps</a></div></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
     # Optional template-specific fields absent from the selected design are omitted.

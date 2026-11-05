@@ -47,7 +47,7 @@ class GeminiPayloadTests(unittest.TestCase):
             json=lambda: {"error": {"message": "quota exhausted", "details": []}},
         )
         post.return_value = exhausted
-        with patch.object(artdir, "KEY", "test-key"), patch.object(artdir.time, "sleep"):
+        with patch.object(artdir, "KEY", "test-key"), patch.dict("os.environ", {"GEMINI_FALLBACK_MODEL": artdir.MODEL}), patch.object(artdir.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "Gemini HTTP 429"):
                 artdir.gem([{"text": "test"}], js=True)
         self.assertEqual(post.call_count, 1)

@@ -65,7 +65,10 @@ def gem(parts, system=None, js=False):
                 except ValueError:
                     message, reason = response.text[:300], ""
                 if "quota" in message.lower() or "quota" in reason.lower() or "limit: 0" in message.lower():
-                    raise RuntimeError("Gemini HTTP 429 quota exhausted; visual/AI design review requires a valid quota or API key. " + message[:220])
+                    last_error = "Gemini HTTP 429 quota exhausted for " + model + ": " + message[:180]
+                    if model != models[-1]:
+                        break
+                    raise RuntimeError("Gemini HTTP 429 quota exhausted on primary and fallback model; visual/AI review requires available quota. " + last_error)
                 last_error = "Gemini HTTP 429 rate limit: " + message[:220]
                 if attempt < 2:
                     time.sleep(2 ** (attempt + 1))
