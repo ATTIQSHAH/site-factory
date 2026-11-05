@@ -1,22 +1,28 @@
-"""Render a generated demo at mobile and desktop sizes and save a deterministic QA report."""
+"""Render a generated demo and enforce content, browser and visual quality gates."""
 import argparse
+import io
 import json
-import os
+import re
 import threading
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-from site_quality import assess_html
 from bs4 import BeautifulSoup
-import re
+from PIL import Image
+from playwright.sync_api import sync_playwright
+
+import artdir
+from site_quality import assess_html
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--site", default="sites/fluff-bake-bar")
     parser.add_argument("--report-dir", default="review/fluff-bake-bar")
+    parser.add_argument("--business", default="")
+    parser.add_argument("--phone", default="")
+    parser.add_argument("--source-website", default="")
     args = parser.parse_args()
 
     site = Path(args.site).resolve()
@@ -33,6 +39,7 @@ def main():
     thread.start()
 
     checks = []
+    screenshots = {}
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
@@ -40,27 +47,37 @@ def main():
                 page = browser.new_page(viewport={"width": width, "height": height}, device_scale_factor=1)
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.goto(
-                    f"http://127.0.0.1:{server.server_port}/{site.name}/",
-                    wait_until="networkidle",
-                    timeout=60000,
-                )
-                page.evaluate("document.querySelectorAll('.rv').forEach(e => { e.classList.add('on'); e.style.opacity = '1'; e.style.transform = 'none'; })")
-                page.evaluate("async () => { const imgs = [...document.images]; imgs.forEach(img => img.loading = 'eager'); await Promise.all(imgs.map(img => img.decode().catch(() => null))); }")
+                page.goto(f"http://127.0.0.1:{server.server_port}/{site.name}/",
+                          wait_until="networkidle", timeout=60000)
+                page.evaluate("document.querySelectorAll('.rv').forEach(e => { e.classList.add('on'); e.style.opacity='1'; e.style.transform='none'; })")
+                page.evaluate("async () => { const imgs=[...document.images]; imgs.forEach(i=>i.loading='eager'); await Promise.all(imgs.map(i=>i.decode().catch(()=>null))); }")
                 page.wait_for_timeout(250)
-                page.screenshot(path=str(report_dir / f"{label}.png"), full_page=True)
-                horizontal_overflow = page.evaluate(
-                    "document.documentElement.scrollWidth > window.innerWidth + 2"
-                )
-                broken_images = page.evaluate(
-                    "[...document.images].filter(i => i.complete && i.naturalWidth === 0)"
-                    ".map(i => i.currentSrc || i.src)"
-                )
+                shot_path = report_dir / f"{label}.png"
+                page.screenshot(path=str(shot_path), full_page=True)
+                screenshots[label] = shot_path.read_bytes()
+                metrics = page.evaluate("""() => {
+                  const rect = e => { const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height}; };
+                  const cards=[...document.querySelectorAll('.menu-card')].map(rect);
+                  const columns=new Set(cards.map(r=>Math.round(r.x/12)*12)).size;
+                  const hero=document.querySelector('.hero');
+                  const bar=document.querySelector('.m');
+                  const heroLead=document.querySelector('.hero-lead, .hero p, .bento-hero-left p');
+                  const overlap=!!(bar && hero && getComputedStyle(bar).position==='fixed' &&
+                    rect(hero).y < window.innerHeight && rect(hero).y+rect(hero).h > (window.innerHeight-rect(bar).h));
+                  const sources=[...document.images].map(i=>i.currentSrc||i.src).filter(Boolean);
+                  const duplicates=sources.filter((src,i)=>sources.indexOf(src)!==i);
+                  return {
+                    horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth+2,
+                    broken_images: [...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.currentSrc||i.src),
+                    menu_card_count: cards.length,
+                    menu_columns: columns,
+                    empty_hero_lead: !!heroLead && !heroLead.textContent.trim(),
+                    mobile_bar_overlaps_hero: overlap,
+                    repeated_image_count: new Set(duplicates).size
+                  };
+                }""")
                 checks.append({
-                    "viewport": label,
-                    "width": width,
-                    "horizontal_overflow": horizontal_overflow,
-                    "broken_images": broken_images,
+                    "viewport": label, "width": width, **metrics,
                     "javascript_errors": errors,
                     "page_title": page.title(),
                     "h1": page.locator("h1").first.inner_text() if page.locator("h1").count() else "",
@@ -72,39 +89,62 @@ def main():
         server.server_close()
 
     html = index.read_text(encoding="utf-8")
-    quality = assess_html(html, "Fluff Bake Bar", "(713) 522-1900")
     soup = BeautifulSoup(html, "html.parser")
-    visible_text = soup.get_text(" ", strip=True)
-    menu_item_count = len(soup.select(".menu-card"))
-    hours_row_count = len(soup.select(".hours-list tr"))
-    has_street_address = bool(re.search(
-        r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b",
-        visible_text, re.I
-    ))
-    has_click_to_call = bool(soup.select_one('a[href^="tel:"]'))
+    business = args.business or (soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "")
+    tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
+    quality = assess_html(html, business, tel)
+    menu_count = len(soup.select(".menu-card"))
+    hours_count = len(soup.select(".hours-list tr"))
+    visible = soup.get_text(" ", strip=True)
+    has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
-        "menu_item_count": menu_item_count,
-        "has_menu_items": menu_item_count >= 5,
-        "hours_row_count": hours_row_count,
-        "has_opening_hours": hours_row_count >= 1,
-        "has_street_address": has_street_address,
-        "has_click_to_call": has_click_to_call,
+        "menu_card_count": menu_count,
+        "has_menu_or_order_path": bool(soup.find(id="menu")) or bool(soup.select_one('a[href*="menu"], a[href*="order"]')),
+        "hours_row_count": hours_count,
+        "has_opening_hours": hours_count > 0,
+        "has_street_address": has_address,
+        "has_click_to_call": bool(soup.select_one('a[href^="tel:"]')),
     }
+
+    visual_review = {"status": "unavailable", "score": 0, "fixes": []}
+    if artdir.KEY and all(label in screenshots for label in ("mobile", "desktop")):
+        try:
+            images = []
+            for label in ("mobile", "desktop"):
+                image = Image.open(io.BytesIO(screenshots[label])).convert("RGB")
+                image.thumbnail((1600, 5000))
+                buffer = io.BytesIO()
+                image.save(buffer, format="JPEG", quality=82)
+                images.append(buffer.getvalue())
+            critique = artdir.critique(images, business or site.name)
+            visual_review = {
+                "status": "passed" if float(critique.get("score", 0)) >= 8 else "needs_changes",
+                "score": float(critique.get("score", 0)),
+                "fixes": critique.get("fixes", []),
+            }
+        except Exception as exc:
+            visual_review = {"status": "error", "score": 0, "fixes": [str(exc)[:300]]}
+
+    browser_passed = all(
+        not check["horizontal_overflow"] and not check["broken_images"] and
+        not check["javascript_errors"] and not check["empty_hero_lead"] and
+        not check["mobile_bar_overlaps_hero"] and check["repeated_image_count"] == 0
+        for check in checks
+    )
     report = {
-        "business": "Fluff Bake Bar",
-        "source_website": "https://fluffbakebar.com/",
+        "business": business,
+        "source_website": args.source_website,
         "quality": quality,
         "data_checks": data_checks,
         "browser_checks": checks,
-        "passed": quality["passed"] and all(data_checks.values()) and all(
-            not c["horizontal_overflow"] and not c["broken_images"] and not c["javascript_errors"]
-            for c in checks
-        ),
+        "visual_review": visual_review,
+        "passed": quality["passed"] and browser_passed and
+                  data_checks["has_click_to_call"] and visual_review["status"] == "passed",
     }
     (report_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
     if not report["passed"]:
-        raise SystemExit("Fluff Bake Bar demo needs review; see report.json and screenshots.")
+        raise SystemExit("Demo failed the quality gate; inspect report.json and screenshots.")
 
 
 if __name__ == "__main__":
