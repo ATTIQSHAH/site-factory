@@ -56,7 +56,7 @@ def safe_social_url(value, domain):
 
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
-    menu_url = safe_http_url(menu_url)
+    menu_url = safe_http_url(d.get("menu_url"))
     order_url = safe_http_url(d.get("order_url"))
     ig = safe_social_url(d.get("ig"), "instagram.com")
     fb = safe_social_url(d.get("fb"), "facebook.com")
