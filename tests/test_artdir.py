@@ -23,13 +23,31 @@ class GeminiPayloadTests(unittest.TestCase):
         self.assertEqual(post.call_count, 2)
 
     @patch("artdir.requests.post")
+    def test_model_unavailable_falls_back_to_secondary_model(self, post):
+        unavailable = SimpleNamespace(
+            ok=False, status_code=503, text="high demand", headers={},
+            json=lambda: {"error": {"message": "high demand"}},
+        )
+        success = SimpleNamespace(
+            ok=True, status_code=200, text="",
+            json=lambda: {"candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}]},
+        )
+        post.side_effect = [unavailable, unavailable, unavailable, success]
+        with patch.object(artdir, "KEY", "test-key"), patch.object(artdir, "MODEL", "primary-model"), \
+             patch.dict("os.environ", {"GEMINI_FALLBACK_MODEL": "backup-model"}), patch.object(artdir.time, "sleep"):
+            result = artdir.gem([{"text": "test"}], js=True)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(post.call_count, 4)
+        self.assertIn("backup-model:generateContent", post.call_args.args[0])
+
+    @patch("artdir.requests.post")
     def test_quota_exhausted_429_is_not_retried(self, post):
         exhausted = SimpleNamespace(
             ok=False, status_code=429, text="quota exhausted", headers={},
             json=lambda: {"error": {"message": "quota exhausted", "details": []}},
         )
         post.return_value = exhausted
-        with patch.object(artdir, "KEY", "test-key"), patch.object(artdir.time, "sleep"):
+        with patch.object(artdir, "KEY", "test-key"), patch.dict("os.environ", {"GEMINI_FALLBACK_MODEL": artdir.MODEL}), patch.object(artdir.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "Gemini HTTP 429"):
                 artdir.gem([{"text": "test"}], js=True)
         self.assertEqual(post.call_count, 1)

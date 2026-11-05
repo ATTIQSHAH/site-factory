@@ -10,6 +10,7 @@ on:
       - "render3.py"
       - "templates/**"
       - "review_site.py"
+      - "site_quality.py"
       - ".github/workflows/fluff-demo-review.yml"
       - "leads/input.csv"
   workflow_dispatch:
@@ -31,24 +32,33 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
       - name: Install dependencies and Chromium
+        timeout-minutes: 6
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install --with-deps chromium
+          playwright install chromium
 
       - name: Generate only Fluff Bake Bar
         run: python factory3.py leads/input.csv
         env:
-          ONLY_WEBSITE: https://fluffbakebar.com/
+          ONLY_WEBSITE: https://fluffbakebar.com
           MAX_PER_RUN: "1"
+          RESULTS: results/fluff-demo-websites.csv
+          SITES_DIR: sites
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
-          AI_DESIGN: ${{ vars.AI_DESIGN }}
+          AI_DESIGN: "0"
           BASE_URL: ""
 
       - name: Capture mobile and desktop screenshots and run quality checks
-        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
+        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/ --require-hours
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
@@ -62,6 +72,6 @@ jobs:
             sites/fluff-bake-bar/index.html
             sites/fluff-bake-bar/img/**
             review/fluff-bake-bar/**
-            results/websites_tab.csv
+            results/fluff-demo-websites.csv
           if-no-files-found: warn
           retention-days: 14

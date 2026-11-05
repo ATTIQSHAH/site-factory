@@ -13,7 +13,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 import artdir
-from site_quality import assess_html
+from site_quality import assess_html, _external_menu_path
 
 
 def main():
@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--business", default="")
     parser.add_argument("--phone", default="")
     parser.add_argument("--source-website", default="")
+    parser.add_argument("--require-hours", action="store_true")
     args = parser.parse_args()
 
     site = Path(args.site).resolve()
@@ -57,7 +58,7 @@ def main():
                 screenshots[label] = shot_path.read_bytes()
                 metrics = page.evaluate("""() => {
                   const rect = e => { const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height}; };
-                  const cards=[...document.querySelectorAll('.menu-card')].map(rect);
+                  const cards=[...document.querySelectorAll('.menu-card, .it')].map(rect);
                   const columns=new Set(cards.map(r=>Math.round(r.x/12)*12)).size;
                   const hero=document.querySelector('.hero');
                   const bar=document.querySelector('.m');
@@ -93,13 +94,13 @@ def main():
     business = args.business or (soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "")
     tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
     quality = assess_html(html, business, tel)
-    menu_count = len(soup.select(".menu-card"))
-    hours_count = len(soup.select(".hours-list tr"))
+    menu_count = len(soup.select(".menu-card, .it"))
+    hours_count = len(soup.select(".hours-list tr, .hours tr"))
     visible = soup.get_text(" ", strip=True)
     has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
         "menu_card_count": menu_count,
-        "has_menu_or_order_path": menu_count > 0 or any(re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I) for a in soup.find_all("a")),
+        "has_menu_or_order_path": menu_count >= 3 or _external_menu_path(soup),
         "hours_row_count": hours_count,
         "has_opening_hours": hours_count > 0,
         "has_street_address": has_address,
@@ -140,7 +141,9 @@ def main():
         "browser_checks": checks,
         "visual_review": visual_review,
         "passed": quality["passed"] and browser_passed and
-                  data_checks["has_click_to_call"] and data_checks["has_street_address"] and
+                  data_checks["has_menu_or_order_path"] and data_checks["has_click_to_call"] and
+                  data_checks["has_street_address"] and
+                  (not args.require_hours or data_checks["has_opening_hours"]) and
                   visual_review["status"] == "passed",
     }
     (report_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")

@@ -1,5 +1,7 @@
 import os
+import tempfile
 import unittest
+from PIL import Image
 import render3
 from template_catalog import catalogue, select
 
@@ -20,6 +22,14 @@ class TemplateCatalogueTests(unittest.TestCase):
             else:
                 self.assertTrue(filename.startswith(('fast_', 'rest_')), (kind, filename))
             self.assertEqual(metadata['file'], filename)
+
+    def test_logo_brand_color_selects_matching_palette(self):
+        with tempfile.NamedTemporaryFile(suffix=".png") as image_file:
+            Image.new("RGB", (40, 40), (80, 190, 215)).save(image_file.name)
+            self.assertEqual(render3.brand_palette((image_file.name, "light")), "sky")
+        with tempfile.NamedTemporaryFile(suffix=".png") as image_file:
+            Image.new("RGB", (40, 40), (120, 120, 120)).save(image_file.name)
+            self.assertIsNone(render3.brand_palette((image_file.name, "light")))
 
     def test_logo_background_is_added_only_when_contrast_requires_it(self):
         light = render3.logo_markup(("img/logo.png", "light"), "Brand", "#f6f1e9")

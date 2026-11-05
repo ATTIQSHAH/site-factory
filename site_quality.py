@@ -1,7 +1,25 @@
 """Quality checks for generated demo websites."""
 import re
 from collections import Counter
+from urllib.parse import urlsplit
 from bs4 import BeautifulSoup
+
+def _external_menu_path(soup):
+    """Return true only for a real menu/order destination, not an in-page fragment."""
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"].strip()
+        label = anchor.get_text(" ", strip=True).lower()
+        parsed = urlsplit(href)
+        if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+            continue
+        path = parsed.path.strip("/")
+        if path:
+            if re.search(r"menu|order|reservation|booking", path + " " + parsed.query, re.I):
+                return True
+        elif re.search(r"order online|online ordering|reserve|book a table|full menu|view menu", label, re.I):
+            return True
+    return False
+
 
 def assess_html(document, business_name="", phone="", require_noindex=True):
     soup = BeautifulSoup(document or "", "html.parser")
@@ -46,11 +64,11 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
             fail(12, "suspicious one-character label or location", True)
             break
 
-    cards = soup.select(".menu-card")
+    cards = soup.select(".menu-card, .it")
     if cards:
         names = []
         for card in cards:
-            node = card.select_one(".menu-item-title, h3, h4")
+            node = card.select_one(".menu-item-title, h3, h4, div span:first-child")
             if node:
                 names.append(re.sub(r"[^a-z0-9]+", " ", node.get_text(" ", strip=True).lower()).strip())
         counts = Counter(n for n in names if n)
@@ -60,7 +78,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
                     for n in soup.select(".menu-section-title")]
         if any(h and h in names for h in headings):
             fail(14, "menu heading repeats a product name", True)
-        prices = [n.get_text(" ", strip=True) for n in soup.select(".menu-item-price-tag") if n.get_text(" ", strip=True)]
+        prices = [n.get_text(" ", strip=True) for n in soup.select(".menu-item-price-tag, .it div span:last-child") if n.get_text(" ", strip=True)]
         price_counts = Counter(prices)
         if len(prices) >= 3:
             value, count = price_counts.most_common(1)[0]
@@ -77,15 +95,13 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if hero_images.intersection(story_images):
         fail(10, "hero image repeated in about/story section", True)
 
-    has_menu = bool(cards) or any(
-        re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I)
-        for a in soup.find_all("a")
-    )
+    external_menu_link = _external_menu_path(soup)
+    has_menu = len(cards) >= 3 or external_menu_link
     if not has_menu:
-        fail(12, "no menu, ordering or reservation path")
+        fail(18, "no usable menu, ordering or reservation path", True)
     if phone:
         digits = re.sub(r"\D", "", phone)
-        page_digits = re.sub(r"\\D", "", document or "")
+        page_digits = re.sub(r"\D", "", document or "")
         if len(digits) >= 7 and digits[-7:] not in page_digits:
             fail(15, "lead phone number missing")
         elif len(digits) >= 7 and not soup.select_one('a[href^="tel:"]'):

@@ -11,7 +11,9 @@ def inspect(url, row):
         response = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
         if response.status_code != 200:
             return "not_live_yet", {"score": 0, "status": "not_live", "issues": [f"HTTP {response.status_code}"]}
-        quality = assess_html(response.text, row.get("Name", ""), row.get("Phone", ""))
+        require_hours = str(row.get("hours_found", "")).strip().lower() in {"true", "1", "yes"}
+        quality = assess_html(response.text, row.get("Name", ""), row.get("Phone", ""),
+                              require_hours=require_hours)
         return ("live" if quality["passed"] else "needs_review"), quality
     except Exception as exc:
         return "not_live_yet", {"score": 0, "status": "not_live", "issues": [str(exc)[:160]]}

@@ -4,11 +4,18 @@ on:
   # Keep manual dispatch available for controlled testing only.
   workflow_dispatch:
     inputs:
+      confirm_batch:
+        description: "Type YES only after the isolated demo is approved and BATCH_ENABLED is true"
+        required: true
+        type: choice
+        options: ["NO", "YES"]
+        default: "NO"
       max: {description: "Max new leads this run", default: "15"}
 permissions: {contents: write}
 concurrency: {group: factory}
 jobs:
   build:
+    if: github.event.inputs.confirm_batch == 'YES' && vars.BATCH_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 340
     steps:

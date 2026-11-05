@@ -1,5 +1,5 @@
-requests
-beautifulsoup4
-Pillow
-playwright
-jinja2
+requests==2.34.2
+beautifulsoup4==4.15.0
+Pillow==13.0.0
+playwright==1.64.1
+jinja2==3.1.6
