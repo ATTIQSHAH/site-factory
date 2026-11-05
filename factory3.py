@@ -333,7 +333,7 @@ def photos_of(soup, base, folder):
     c += re.findall(r"url\(['\"]?([^'\")]+)", str(soup)[:400000])
     urls = [urljoin(base, u) for u in dict.fromkeys(x for x in c if x) if not re.search(r"logo|icon|sprite|avatar|favicon|\.svg|\.gif|pixel|spacer", u, re.I) and re.search(r"\.(jpe?g|png|webp)|image", u, re.I)]
     good, hashes = [], []
-    for u in urls[:20]:
+    for u in urls[:12]:
         b, _ = media.dl(u); im = media.photo(b) if b else None
         if im is None: continue
         h = media.ahash(im)
