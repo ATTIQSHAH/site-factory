@@ -105,10 +105,16 @@ def build3(d):
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16)
     theme_kind = {"cafe": "coffee", "fastfood": "grill"}.get(d["kind"], d["kind"])
     palette = THEMES.get(theme_kind, THEMES["restaurant"])
-    th = brand_palette(d.get("logo")) or palette[seed % len(palette)]
+    brand = brand_palette(d.get("logo"))
+    if d["kind"] == "bakery":
+        th = {"sky": "sprinkle", "blush": "berry", "butter": "citrus",
+              "sage": "sprinkle", "slate": "sprinkle", "paprika": "citrus"}.get(brand, "sprinkle")
+    else:
+        th = brand or palette[seed % len(palette)]
     bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
-    f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
+    f = FONTS[1] if d["kind"] == "bakery" else FONTS[(seed // 3) % 4]
+    ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
     if hero != "type" and not ph and not d.get("video"): hero = "type"
     if hero == "type" and len(ph) < 3: hero = "full" if (ph or d.get("video")) else "type"
     n, tel = E(d["name"]), re.sub(r"[^0-9+]", "", d["phone"] or "")
@@ -319,7 +325,8 @@ a:focus-visible { outline:3px solid var(--acc); outline-offset:4px; border-radiu
 .bento-quote-frame * { color:var(--accink) !important; }
 .pillar-badge { background:#fff; border:1px solid var(--acc); color:var(--ink); }
 .section-header { text-align:left; max-width:900px; margin:0 0 2rem; }
-.section-title { max-width:820px; }
+ .section-title { max-width:820px; font-size:clamp(2.35rem,4.8vw,3.7rem); letter-spacing:-.035em; }
+.hero-title { font-weight:700; letter-spacing:-.04em; }
 .story-card-grid { background:var(--bg2); border:0; border-radius:26px; padding:clamp(1.5rem,4vw,3rem); gap:clamp(1.5rem,4vw,3rem); }
 .story-content { max-width:560px; font-size:1.08rem; }
 .story-photo-frame { border:0; border-radius:22px; box-shadow:0 18px 40px rgba(43,23,32,.12); }
@@ -347,7 +354,7 @@ a:focus-visible { outline:3px solid var(--acc); outline-offset:4px; border-radiu
   .map-frame, .location-map { min-height:260px; }
   section { padding-top:3.25rem; padding-bottom:3.25rem; }
   .section-header { margin-bottom:2rem; }
-  .section-intro, .story-content, .menu-preview p { font-size:1.05rem; line-height:1.7; color:var(--ink); }
+   .section-intro, .story-content, .menu-preview p { font-size:1.1rem; line-height:1.75; color:var(--ink); }
   .visit-hub { padding:1.5rem; }
 }
 """
