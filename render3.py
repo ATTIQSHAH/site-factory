@@ -1,4 +1,5 @@
 import hashlib, html, os, re, urllib.parse as up
+from template_catalog import select as select_template
 E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
@@ -21,10 +22,33 @@ def niche(n):
     if re.search(r"bakery|bread|bake|cake|dessert|cookie|macaron|donut|pastry", n): return "bakery", "bakery pastries"
     if re.search(r"bbq|barbecue|smokehouse|smoke|burger|pizza|pizzeria|taco|trompo|birria|grill|brew|pub|cantina", n): return "grill", "grilled food"
     return "restaurant", "restaurant interior"
+def logo_markup(logo, name, background):
+    if not logo:
+        return E(name)
+    path, tone = logo
+    bg = None
+    if tone == "light" and lum(background) > 0.45:
+        bg = "#171210"
+    elif tone == "dark" and lum(background) < 0.18:
+        bg = "#ffffff"
+    style = (' style="background:' + bg + ';padding:6px 10px;border-radius:6px"') if bg else ""
+    return '<img src="' + E(path) + '" alt="' + E(name) + '"' + style + '>'
+
+
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "premium.html"), encoding="utf-8").read()
-    seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
+    template_file, template_meta = select_template(d["kind"], name=d["name"], about=d.get("about", ""), menu=d.get("menu", []))
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+    if not os.path.isfile(template_path):
+        template_file = "premium.html"
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+        template_meta = {"id": "premium", "family": "fallback", "style": "Premium fallback", "file": template_file}
+    t = open(template_path, encoding="utf-8").read()
+    seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16)
+    theme_kind = {"cafe": "coffee", "fastfood": "grill"}.get(d["kind"], d["kind"])
+    palette = THEMES.get(theme_kind, THEMES["restaurant"])
+    th = palette[seed % len(palette)]
+    bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
     if hero != "type" and not ph and not d.get("video"): hero = "type"
@@ -43,13 +67,15 @@ def build3(d):
             while len(w) > 6 and w[-1].lower().strip(",") in {"and", "with", "or", "of", "the", "a", "an", "to", "in", "for", "by", "as", "&", "at", "on"}: w = w[:-1]
             ab = " ".join(w).rstrip(" ,;:-") + "."
     m = re.match(r"(.{40,150}?[.!?])(\s|$)", ab); short = m.group(1) if m else (ab if len(ab) <= 150 else ab[:150].rsplit(" ", 1)[0])
+    if not short:
+        short = "Explore the menu, contact details and visit information for " + d["name"] + "."
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n}" class="{"pill" if d["logo"][1] == "light" else "pillw"}">' if d.get("logo") else n
+    lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
@@ -79,5 +105,21 @@ def build3(d):
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
-    for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero}
+    for k, v in rep.items():
+        t = t.replace("{{%s}}" % k, v)
+    # Remove template marketing claims that cannot be proven from the business source.
+    for claim in ("Michelin Guide 2026 · Tasting Menu", "36-Hour Fermentation · Stone Ground",
+                  "Fresh Batch Roasted & Baked Daily", "Walk-ins always welcome.",
+                  "Honoring genuine ingredients, slow preparation, and neighborly warmth.",
+                  "Prepared fresh daily with seasonal harvests and time-honored recipes.",
+                  "A glimpse into our kitchen, dining room, and daily creations."):
+        t = t.replace(claim, "")
+    description = E((d.get("about") or "").strip()[:155]) or E(
+        "Explore contact details, location, menu and visit information for " + d["name"] + ".")
+    if not re.search(r'<meta[^>]+name=["\\']description["\\']', t, re.I):
+        t = t.replace("</title>", '</title><meta name="description" content="' + description + '">', 1)
+    if not re.search(r'<meta[^>]+name=["\\']robots["\\'][^>]*noindex', t, re.I):
+        t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>', 1)
+    assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
+    return t, {"theme": th, "hero": hero, "template_file": template_file,
+               "template_id": template_meta.get("id", ""), "template_status": "selected"}

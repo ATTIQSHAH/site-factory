@@ -34,12 +34,49 @@ HARD RULES
 - Follow the DESIGN DIRECTION strictly; compose a layout and section order that is distinct to this direction. Derive colours from the direction and the supplied dominant colours.
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
-    if not KEY: raise RuntimeError("no GEMINI_API_KEY")
+    if not KEY:
+        raise RuntimeError("no GEMINI_API_KEY")
     body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
-    if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240).json()
-    time.sleep(5); t = r["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", t.strip())
+    if system:
+        body["systemInstruction"] = {"parts": [{"text": system}]}
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.post(endpoint, json=body, timeout=240)
+        except requests.RequestException as exc:
+            if attempt == 2:
+                raise RuntimeError("Gemini request failed after retries: " + str(exc)[:240]) from exc
+            time.sleep(2 ** (attempt + 1))
+            continue
+        if response.status_code == 429:
+            try:
+                error = response.json().get("error", {})
+                message = str(error.get("message", ""))
+                reason = str(error.get("status", ""))
+            except ValueError:
+                message, reason = response.text[:300], ""
+            if "quota" in message.lower() or "quota" in reason.lower() or "limit: 0" in message.lower():
+                raise RuntimeError("Gemini quota exhausted; visual/AI design review requires a valid quota or API key. " + message[:220])
+            if attempt == 2:
+                raise RuntimeError("Gemini rate limit persisted after bounded retries: " + message[:220])
+            time.sleep(2 ** (attempt + 1))
+            continue
+        if response.status_code >= 500 and attempt < 2:
+            time.sleep(2 ** (attempt + 1))
+            continue
+        if response.status_code >= 400:
+            raise RuntimeError("Gemini API HTTP " + str(response.status_code) + ": " + response.text[:300])
+        break
+    payload = response.json()
+    if payload.get("error"):
+        raise RuntimeError("Gemini API error: " + str(payload["error"])[:300])
+    try:
+        text = payload["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Gemini returned no usable candidate: " + str(payload)[:300]) from exc
+    time.sleep(2)
+    return json.loads(text) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", text.strip())
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],

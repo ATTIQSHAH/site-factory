@@ -37,10 +37,15 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
+      - name: Clear previous isolated demo output
+        run: |
+          rm -rf sites/fluff-bake-bar
+          rm -f results/websites_tab.csv
+
       - name: Generate only Fluff Bake Bar
         run: python factory3.py leads/input.csv
         env:
-          ONLY_WEBSITE: https://fluffbakebar.com/
+          ONLY_WEBSITE: https://fluffbakebar.com
           MAX_PER_RUN: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
@@ -48,7 +53,7 @@ jobs:
           BASE_URL: ""
 
       - name: Capture mobile and desktop screenshots and run quality checks
-        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
+        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/ --require-hours
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash

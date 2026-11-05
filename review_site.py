@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--business", default="")
     parser.add_argument("--phone", default="")
     parser.add_argument("--source-website", default="")
+    parser.add_argument("--require-hours", action="store_true")
     args = parser.parse_args()
 
     site = Path(args.site).resolve()
@@ -92,16 +93,17 @@ def main():
     soup = BeautifulSoup(html, "html.parser")
     business = args.business or (soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "")
     tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
-    quality = assess_html(html, business, tel)
-    menu_count = len(soup.select(".menu-card"))
-    hours_count = len(soup.select(".hours-list tr"))
+    quality = assess_html(html, business, tel, require_hours=args.require_hours)
+    menu_count = quality.get("menu_card_count", 0)
+    hours_count = len(soup.select(".hours tr, .hours-list tr, .hours-table tr, [itemprop='openingHours']"))
     visible = soup.get_text(" ", strip=True)
     has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
         "menu_card_count": menu_count,
-        "has_menu_or_order_path": menu_count > 0 or any(re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I) for a in soup.find_all("a")),
+        "has_menu_or_order_path": quality.get("has_menu_path", False),
         "hours_row_count": hours_count,
         "has_opening_hours": hours_count > 0,
+        "hours_required": args.require_hours,
         "has_street_address": has_address,
         "has_click_to_call": bool(soup.select_one('a[href^="tel:"]')),
     }
@@ -139,7 +141,8 @@ def main():
         "data_checks": data_checks,
         "browser_checks": checks,
         "visual_review": visual_review,
-        "passed": quality["passed"] and browser_passed and
+        "passed": quality["passed"] and browser_passed and data_checks["has_menu_or_order_path"] and
+                  (not args.require_hours or data_checks["has_opening_hours"]) and
                   data_checks["has_click_to_call"] and data_checks["has_street_address"] and
                   visual_review["status"] == "passed",
     }

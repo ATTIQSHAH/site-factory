@@ -6,11 +6,23 @@ import media, artdir, library
 from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
+from business_intel import classify_business
 from render3 import build3, niche
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
 BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN", "30"))
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
 DAY = r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*"
+def suppress_ambiguous_menu_prices(items):
+    """Drop menu cards when a repeated price strongly suggests a parsing error."""
+    prices = [str(item.get("price", "")).strip() for item in items if str(item.get("price", "")).strip()]
+    if len(prices) >= 3:
+        counts = Counter(prices)
+        value, count = counts.most_common(1)[0]
+        if value and count >= 3 and count / len(prices) >= 0.6:
+            return []
+    return items
+
+
 def menu_text(h):
     s = BeautifulSoup(h, "html.parser")
     for t in s(["script", "style", "nav", "footer", "header"]): t.decompose()
@@ -81,10 +93,21 @@ def photos_of(soup, base, folder):
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip(); kind, q = niche(name)
+    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip()
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
-    addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
+    addr, city = address_of(biz, text)
+    items, menu_url, msrc = get_menu(soup, base)
+    items = suppress_ambiguous_menu_prices(items)
+    title_text = soup.title.get_text(" ", strip=True) if soup.title else ""
+    headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])[:20]]
+    schema_types = [value for entry in (ld(soup) or []) for value in (
+        entry.get("@type", []) if isinstance(entry.get("@type"), list) else [entry.get("@type", "")]
+    ) if value]
+    kind, q, classification = classify_business(
+        name=name, title=title_text, description=about, headings=headings,
+        menu_items=items, schema_types=schema_types
+    )
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: kind = library.classify(name, about, items, kind)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
     if not lg:
@@ -108,7 +131,7 @@ def process(r, folder):
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
+         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
     elif os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
@@ -120,8 +143,19 @@ def process(r, folder):
     flags = [x for x, bad in [("no own photos", own < 3), ("no menu", msrc in ("none", "link") and not items), ("no address", not addr), ("no logo", not logo)] if bad]
     return d, info, msrc, own, "ok" if not flags else "check: " + ", ".join(flags), html
 def main(src):
-    rows = list(csv.DictReader(open(src, encoding="utf-8-sig"))); done = {}
-    if os.path.exists(RES): done = {r["Website"]: r for r in csv.DictReader(open(RES, encoding="utf-8"))}
+    rows = list(csv.DictReader(open(src, encoding="utf-8-sig")))
+    target = os.getenv("ONLY_WEBSITE", "").strip().rstrip("/")
+    if target:
+        rows = [row for row in rows if row.get("Website", "").strip().rstrip("/") == target]
+        if not rows:
+            raise SystemExit("ONLY_WEBSITE did not match any lead in " + src + ": " + target)
+    done = {}
+    if os.path.exists(RES):
+        done = {row["Website"]: row for row in csv.DictReader(open(RES, encoding="utf-8"))}
+    if target:
+        for key in list(done):
+            if key.strip().rstrip('/') == target:
+                done.pop(key, None)
     for r in done.values(): r["batch"] = r.get("batch") or "1"
     USED.update(r.get("theme") for r in done.values() if r.get("theme") in artdir.DIRS)
     n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch = []; used = {r.get("site_path") for r in done.values()}
