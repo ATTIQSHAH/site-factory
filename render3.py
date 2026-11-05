@@ -170,7 +170,7 @@ def build3(d):
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
            "MENU_INTRO": E("Featured items from the published menu.") if d.get("menu") else E("Explore the full menu and current ordering options."),
-           "MAP_FRAME": ('<div class="map-frame" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:var(--bg2)"><div><span class="section-tag">Find us</span><p>' + E(d["city"] or d["address"]) + '</p><a class="btn-main" href="' + E(dirn) + '" target="_blank" rel="noopener">Open in Maps</a></div></div>') if d.get("address") else ""}
+           "MAP_FRAME": ('<div class="map-frame" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:linear-gradient(135deg,var(--bg2),var(--bg))"><div><span class="section-tag">Find us</span><p style="font-family:var(--disp);font-size:1.7rem;margin:.7rem 0">' + E(d["city"] or d["address"]) + '</p><p style="color:var(--mut);font-size:.9rem">Use the directions link to open Maps.</p></div></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
     # Optional template-specific fields absent from the selected design are omitted.
@@ -206,12 +206,24 @@ body { overflow-wrap: anywhere; }
   .nav-brand { min-width: 0; max-width: 100%; flex: 1 1 180px; gap: .4rem; }
   .nav-brand img { max-width: 110px; max-height: 50px; width: auto; height: auto; }
   .nav-cta { font-size: .78rem; padding: .5rem .7rem; white-space: nowrap; }
-  section { width: 100%; max-width: 100%; padding-left: 1rem; padding-right: 1rem; }
+  section { width: 100%; max-width: 100%; padding: 3.5rem 1rem; }
   .story-card-grid, .visit-hub { width: 100%; max-width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); padding: 1.25rem; gap: 1.5rem; }
   .story-card-grid > *, .visit-hub > *, .section-header { min-width: 0; max-width: 100%; }
+  .section-header { margin-bottom: 2rem; }
+  .section-title { font-size: clamp(1.9rem, 6vw, 2.6rem); }
+  .menu-layout, .gallery-showcase { gap: 1rem; }
+  .gallery-item { aspect-ratio: 4 / 3; }
   .menu-layout, .gallery-showcase { grid-template-columns: minmax(0, 1fr); }
   .strip { width: 100%; max-width: 100%; grid-template-columns: minmax(0, 1fr); padding-left: 1rem; padding-right: 1rem; }
   .map-frame { width: 100%; max-width: 100%; min-width: 0; }
+}
+}
+@media (min-width: 901px) {
+  .story-card-grid { padding: 2.75rem; gap: 2.75rem; align-items: center; }
+  .story-content { max-width: 520px; font-size: 1.02rem; }
+  .story-photo-frame { width: 100%; max-width: 520px; margin-left: auto; }
+  .gallery-showcase { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; }
+  .gallery-item { aspect-ratio: 4 / 3; }
 }
 @media (max-width: 768px) {
   body .m { display: none !important; }
