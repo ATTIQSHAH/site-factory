@@ -40,7 +40,7 @@ def gem(parts, system=None, js=False):
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
 
-    fallback = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
+    fallback = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
     models = [MODEL] + ([fallback] if fallback and fallback != MODEL else [])
     payload = None
     last_error = "Gemini request did not return a response"
