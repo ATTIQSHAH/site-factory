@@ -124,8 +124,10 @@ def assess_html(document, business_name="", phone="", require_noindex=True,
 
     if phone:
         digits = re.sub(r"\D", "", phone)
-        page_digits = re.sub(r"\D", "", (document or "") + " " + " ".join(
-            node.get("href", "") for node in soup.select('a[href^="tel:"]')))
+        phone_sources = [soup.get_text(" ", strip=True)] + [
+            node.get("href", "") for node in soup.select('a[href^="tel:"]')
+        ]
+        page_digits = re.sub(r"\D", "", " ".join(phone_sources))
         if len(digits) >= 7 and digits[-7:] not in page_digits:
             fail(15, "lead phone number missing", True)
         elif len(digits) >= 7 and not soup.select_one('a[href^="tel:"]'):
