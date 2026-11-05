@@ -1,43 +1,253 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
-<title>Don Artemio | Demo Website</title><link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Don Artemio | Authentic Hospitality</title><meta name="description" content="Don Artemio is a culinary space in which the flavors of the cuisine of Northeast Mexico are recreated with contemporary airs in Fort Worth, TX. View the menu and visit information for Don Artemio on this website.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#faf6ef;--bg2:#f0e8da;--ink:#241a17;--mut:#6b5b54;--acc:#8c2f2b;--accink:#ffffff;--line:rgba(36,26,23,.14);--disp:'DM Serif Display',Georgia,serif;--body:'Inter',system-ui,sans-serif}
-*{box-sizing:border-box;margin:0}html{scroll-behavior:smooth}body{background:var(--bg);color:var(--ink);font:400 17px/1.7 var(--body);padding-bottom:40px}
-h1,h2,h3{font-family:var(--disp);font-weight:700;line-height:1.08}a{color:inherit}img{max-width:100%}
-.wrap{max-width:1180px;margin:auto;padding:0 28px}.eyebrow{letter-spacing:.26em;text-transform:uppercase;font-size:.76rem;color:var(--acc);font-weight:600}
-.btn{display:inline-block;padding:15px 30px;border-radius:6px;font-weight:600;text-decoration:none;font-size:.95rem;border:2px solid var(--acc);transition:.25s;margin:0 8px 10px 0}
-.btn.p{background:var(--acc);color:var(--accink)}.btn.s{background:var(--ink);color:var(--bg);border-color:var(--ink)}.btn:hover{transform:translateY(-2px)}
-header{position:fixed;inset:0 0 auto;z-index:50;transition:.3s;--hc:var(--ink)}body.hero-full header:not(.on){--hc:#fff}header.on{background:var(--bg);box-shadow:0 1px 0 var(--line)}
-.nav{display:flex;align-items:center;justify-content:space-between;height:78px;color:var(--hc)}.logo{font:700 1.5rem var(--disp);text-decoration:none;display:flex;align-items:center}
-.logo img{height:48px;width:auto;border-radius:8px}.logo img.pill{background:#1b1b1b;padding:6px 10px}.logo img.pillw{background:#fff;padding:6px 10px}.nav ul{display:flex;gap:32px;list-style:none;padding:0}.nav ul a{text-decoration:none;font-size:.9rem}.nav ul a:hover{color:var(--acc)}
-.hero{min-height:100vh;display:flex;align-items:center;position:relative;overflow:hidden;background:var(--bg2)}.hero .bg,.hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.hero .wrap{position:relative;z-index:2;padding-top:90px;padding-bottom:60px}.hero h1{font-size:clamp(2.8rem,7.5vw,6rem);margin:16px 0 22px;max-width:900px}.hero p{max-width:540px;font-size:1.15rem;margin-bottom:32px}
-.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:34px}.chip{border:1px solid var(--line);padding:8px 16px;border-radius:999px;font-size:.86rem}
-body.hero-full .hero{color:#fff}body.hero-full .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(0,0,0,.4) 50%,rgba(0,0,0,.75))}body.hero-full .hero .eyebrow{color:#fff}body.hero-full .chip{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.3)}body.hero-full .btn.s{background:#fff;color:#111;border-color:#fff}
-body.hero-split .hero{display:grid;grid-template-columns:1fr 1fr;padding:0}body.hero-split .hero .bg{position:relative;grid-column:2;grid-row:1;min-height:100vh}body.hero-split .hero .wrap{grid-column:1;grid-row:1;padding-left:max(28px,calc((100vw - 1180px)/2));padding-right:48px}body.hero-split .hero video{display:none}
-body.hero-type .hero{min-height:88vh;text-align:center}body.hero-type .hero .bg,body.hero-type .hero video{display:none}body.hero-type .hero h1{font-size:clamp(3.2rem,10vw,8.5rem);margin-left:auto;margin-right:auto}body.hero-type .hero p{margin-left:auto;margin-right:auto}body.hero-type .chips{justify-content:center}
-.strip{display:none}body.hero-type .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:1180px;margin:0 auto;padding:0 28px 80px}.strip img{width:100%;height:320px;object-fit:cover;border-radius:14px}
-section{padding:110px 0}.alt{background:var(--bg2)}.two{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}.flip .imgf{order:-1}
-h2{font-size:clamp(2rem,4.4vw,3.3rem);margin:12px 0 20px}.lead{color:var(--mut)}
-.imgf{position:relative}.imgf img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:16px;display:block;position:relative;z-index:1}.imgf::before{content:"";position:absolute;inset:20px -20px -20px 20px;border:2px solid var(--acc);border-radius:16px}
-.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:32px}.fact{border-top:2px solid var(--acc);padding-top:12px}.fact b{display:block;font:700 1rem var(--disp)}.fact span{color:var(--mut);font-size:.86rem}
-.menu{columns:2;column-gap:60px;margin-top:40px}.menu h3{font-size:1.3rem;margin:26px 0 8px;break-after:avoid;color:var(--acc)}.it{break-inside:avoid;padding:10px 0;border-bottom:1px solid var(--line)}.it div{display:flex;justify-content:space-between;gap:16px;font-weight:600}.it small{display:block;color:var(--mut);font-size:.88rem;line-height:1.5}
-.mcta{position:relative;margin-top:40px;min-height:320px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg2) center/cover}.mcta::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.5)}.mcta.nophoto{flex-direction:column;min-height:220px;border:1px solid var(--line);background:var(--bg)}.mcta.nophoto::after{display:none}.mcta a{position:relative;z-index:2}
-.gal{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:230px;gap:14px;margin-top:40px}.gal img{width:100%;height:100%;object-fit:cover;border-radius:12px}.gal img:nth-child(1){grid-column:span 2;grid-row:span 2}.gal img:nth-child(4){grid-column:span 2}
-.hours{width:100%;border-collapse:collapse;margin:18px 0 24px}.hours td{padding:11px 0;border-bottom:1px solid var(--line)}.hours td:last-child{text-align:right;color:var(--mut)}
-.map{width:100%;min-height:380px;border:0;border-radius:16px}.band{background:var(--acc);color:var(--accink);text-align:center;padding:80px 0}.band h2{margin:0 0 22px}.band .btn{background:var(--accink);color:var(--acc);border-color:var(--accink)}
-footer{padding:44px 0;border-top:1px solid var(--line);color:var(--mut);font-size:.9rem}footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}footer a{margin-left:16px}
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#111;color:#fff;font:13px/1.3 sans-serif;text-align:center;padding:9px}.m{display:none}.rv{opacity:0;transform:translateY(24px);transition:.9s}.rv.in{opacity:1;transform:none}
-@media(max-width:860px){.two,body.hero-split .hero{grid-template-columns:1fr}.two{gap:44px}.nav ul{display:none}section{padding:76px 0}.gal{grid-template-columns:1fr 1fr;grid-auto-rows:170px}.gal img:nth-child(1){grid-column:span 2}.facts{grid-template-columns:1fr}.menu{columns:1}
-body.hero-split .hero .bg{grid-column:1;grid-row:1;min-height:42vh;position:relative}body.hero-split .hero .wrap{grid-row:2;padding:40px 28px}.strip{grid-template-columns:1fr}body.hero-type .strip img{height:220px}.flip .imgf{order:0}
-.m{display:flex;position:fixed;left:0;right:0;bottom:34px;z-index:60}.m a{flex:1;text-align:center;padding:15px;background:var(--acc);color:var(--accink);font-weight:600;text-decoration:none}.m a+a{background:var(--ink);color:var(--bg)}body{padding-bottom:100px}}
-</style></head><body class="hero-full">
-<header id="h"><div class="wrap nav"><a href="#top" class="logo"><img src="img/logo.png" alt="Don Artemio" class="pill"></a><ul><li><a href="#story">About</a></li><li><a href="#menu">Menu</a></li><li><a href="#gallery">Gallery</a></li><li><a href="#visit">Visit</a></li></ul><a class="btn p" style="margin:0" href="tel:+18174701439">Call (817) 470-1439</a></div></header>
-<section class="hero" id="top" style="padding:0"><div class="bg" style="background:var(--bg2) url('img/p0.jpg') center/cover"></div><div class="wrap"><span class="eyebrow">Restaurant · Worth</span><h1>Don Artemio</h1><p>Don Artemio is a culinary space in which the flavors of the cuisine of Northeast Mexico are recreated with contemporary airs in Fort Worth, TX.</p><a class="btn p" href="#menu">See the menu</a><a class="btn s" href="#visit">Plan Your Visit</a><div class="chips"><span class="chip">Worth</span></div></div></section>
+:root {
+    --bg: #faf6ef;
+    --bg2: #f0e8da;
+    --ink: #241a17;
+    --mut: #6b5b54;
+    --acc: #8c2f2b;
+    --accink: #ffffff;
+    --line: rgba(36,26,23,.14);
+    --disp: 'DM Serif Display', Georgia, serif;
+    --body: 'Inter', system-ui, -apple-system, sans-serif;
+    --rad: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, .font-disp { font-family: var(--disp); }
+a { color: inherit; }
+
+/* Scroll Reveal */
+.rv { opacity: 0; transform: translateY(22px); transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
+.rv.on { opacity: 1; transform: translateY(0); }
+
+/* Custom Pillar Theme CSS */
+
+        .pillar-badge { display: inline-flex; align-items: center; gap: 0.6rem; border: 1.5px solid var(--acc); color: var(--ink); background: rgba(var(--acc-rgb, 217, 119, 54), 0.08); padding: 0.45rem 1.25rem; border-radius: var(--rad); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 700; margin-bottom: 1.25rem; }
+        .pillar-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--acc); display: inline-block; }
+        .hero { min-height: 85vh; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 4.5rem; align-items: center; max-width: 1320px; margin: 0 auto; padding: 7.5rem 2rem 5rem; }
+        .hero-media-wrap { position: relative; border-radius: var(--rad); overflow: hidden; aspect-ratio: 4/5; box-shadow: 0 30px 60px rgba(0,0,0,0.22); border: 1px solid var(--line); }
+        .hero-media-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .hero-title { font-size: clamp(2.8rem, 5.5vw, 4.8rem); line-height: 1.08; font-weight: 400; letter-spacing: -0.02em; margin: 0.8rem 0 1.5rem; }
+        .hero-lead { font-size: 1.25rem; line-height: 1.65; color: var(--mut); margin-bottom: 2.5rem; max-width: 580px; }
+        @media (max-width: 960px) { .hero { grid-template-columns: 1fr; padding-top: 5rem; gap: 2.5rem; } .hero-media-wrap { aspect-ratio: 16/10; order: -1; } }
+        
+
+    /* Header & Navigation with guaranteed contrast matching theme background */
+    header { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); background: var(--bg); border-bottom: 1px solid var(--line); transition: all 0.3s; }
+    header.on { box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .nav-container { max-width: 1300px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 1.15rem 2rem; }
+    .nav-brand { display: flex; align-items: center; gap: 0.8rem; text-decoration: none; font-size: 1.35rem; font-weight: 700; font-family: var(--disp); color: var(--ink); }
+    .nav-menu { display: flex; list-style: none; gap: 2.2rem; align-items: center; margin: 0; padding: 0; }
+    .nav-menu a { text-decoration: none; font-size: 0.95rem; font-weight: 500; color: var(--mut); transition: color 0.2s; }
+    .nav-menu a:hover { color: var(--ink); }
+    .nav-cta { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--acc); color: var(--accink); padding: 0.65rem 1.4rem; border-radius: var(--rad); font-size: 0.88rem; font-weight: 700; text-decoration: none; transition: opacity 0.2s, transform 0.2s; }
+    .nav-cta:hover { opacity: 0.92; transform: translateY(-1px); }
+    @media (max-width: 860px) { .nav-menu { display: none; } }
+
+    /* Buttons */
+    .btn-main { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; background: var(--acc); color: var(--accink); padding: 0.95rem 2rem; border-radius: var(--rad); font-weight: 700; text-decoration: none; font-size: 1.05rem; transition: all 0.2s; border: 0; cursor: pointer; }
+    .btn-main:hover { transform: translateY(-2px); opacity: 0.95; }
+    .btn-alt { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; background: var(--bg2); color: var(--ink); padding: 0.95rem 2rem; border-radius: var(--rad); font-weight: 600; text-decoration: none; font-size: 1.05rem; border: 1px solid var(--line); transition: background 0.2s; }
+    .btn-alt:hover { background: var(--line); }
+
+    /* Sections */
+    section { padding: 6.5rem 2rem; max-width: 1280px; margin: 0 auto; }
+    .section-header { text-align: center; max-width: 680px; margin: 0 auto 3.5rem; }
+    .section-tag { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.78rem; font-weight: 700; color: var(--acc); margin-bottom: 0.75rem; display: inline-block; }
+    .section-title { font-size: clamp(2.2rem, 4vw, 3.4rem); line-height: 1.15; font-weight: 500; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+    .section-intro { color: var(--mut); margin-top: 1rem; font-size: 1.15rem; line-height: 1.6; }
+
+    /* Story Section */
+    .story-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4.5rem; align-items: center; background: var(--bg2); padding: 4.5rem; border-radius: calc(var(--rad) * 1.5); border: 1px solid var(--line); }
+    .story-content { font-size: 1.1rem; line-height: 1.75; color: var(--ink); }
+    .story-photo-frame { border-radius: var(--rad); overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--line); box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
+    .story-photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+    @media (max-width: 880px) { .story-card-grid { grid-template-columns: 1fr; padding: 2rem; gap: 2rem; } }
+
+    /* Menu & Offerings */
+    .menu-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.8rem; }
+    .menu-card { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--rad); padding: 1.8rem; transition: transform 0.2s, box-shadow 0.2s; }
+    .menu-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(0,0,0,0.06); }
+    .menu-card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+    .menu-item-title { font-size: 1.25rem; font-weight: 600; font-family: var(--disp); color: var(--ink); }
+    .menu-item-price-tag { font-weight: 700; color: var(--acc); font-size: 1.15rem; }
+    .menu-item-details { color: var(--mut); font-size: 0.95rem; line-height: 1.55; margin: 0; }
+
+    /* Gallery Grid */
+    .gallery-showcase { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.5rem; }
+    .gallery-item { border-radius: var(--rad); overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--line); position: relative; }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+    .gallery-item:hover img { transform: scale(1.06); }
+
+    /* Visit / Location Box */
+    .visit-hub { background: var(--bg2); border: 1px solid var(--line); border-radius: calc(var(--rad) * 1.5); padding: 4rem; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; }
+    .hours-list { width: 100%; border-collapse: collapse; margin: 1.8rem 0; }
+    .hours-list tr { border-bottom: 1px solid var(--line); }
+    .hours-list td { padding: 0.9rem 0; font-size: 1rem; color: var(--ink); }
+    .hours-list td:last-child { text-align: right; font-weight: 700; color: var(--ink); }
+    .map-frame { width: 100%; height: 350px; border-radius: var(--rad); overflow: hidden; border: 1px solid var(--line); }
+    .map-frame iframe { width: 100%; height: 100%; border: 0; }
+    @media (max-width: 880px) { .visit-hub { grid-template-columns: 1fr; padding: 2rem; gap: 2.5rem; } }
+
+    /* Order / Booking Banner */
+    .cta-hub { background: var(--ink); color: var(--bg); border-radius: calc(var(--rad) * 1.5); padding: 4.5rem 2rem; text-align: center; margin: 4rem auto; max-width: 1200px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+    .cta-hub h2 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; color: var(--bg); }
+    .cta-hub p { color: var(--bg); opacity: 0.85; font-size: 1.25rem; max-width: 620px; margin: 0 auto 2.2rem; }
+
+    /* Mobile Quick Bar */
+    .m { display: none; }
+    @media (max-width: 768px) {
+        .m { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 99; background: var(--bg); border-top: 1px solid var(--line); padding: 0.8rem 1rem; gap: 0.8rem; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+        .m a { flex: 1; text-align: center; padding: 0.9rem; border-radius: var(--rad); font-weight: 700; text-decoration: none; font-size: 0.95rem; }
+        .m-call { background: var(--acc); color: var(--accink); }
+        .m-dir { background: var(--bg2); color: var(--ink); border: 1px solid var(--line); }
+    }
+    
+</style>
+<meta name="robots" content="noindex,nofollow">
+<style>html,body{max-width:100%;overflow-x:clip}*,*::before,*::after{min-width:0}img,video,iframe{max-width:100%}.menu-layout,.gallery-showcase{grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr))}.story-content,.visit-hub,.story-card-grid{min-width:0}.facts{display:grid;gap:.7rem;margin-top:1.2rem}.fact{display:flex;gap:.6rem;flex-wrap:wrap}.menu-section-title{grid-column:1/-1;margin-top:1rem}.menu-link{margin-top:1.5rem}</style></head>
+<body class="hero-full theme-rest_05_parisian_brasserie pillar-restaurant">
+
+<!-- Navigation -->
+<header id="h">
+    <div class="nav-container">
+        <a href="#top" class="nav-brand">
+            <span class="logo-contrast" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;background:#171210;border-radius:5px"><img src="img/logo.png" alt="Don Artemio logo" style="display:block;width:auto;height:auto;max-width:150px;max-height:48px;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none"></span>
+            <span>Don Artemio</span>
+        </a>
+        <ul class="nav-menu">
+            <li><a href="#menu">Menu</a></li><li><a href="#gallery">Gallery</a></li><li><a href="#visit">Visit</a></li>
+        </ul>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <a href="tel:+18174701439" class="nav-cta">Call: (817) 470-1439</a>
+        </div>
+    </div>
+</header>
+
+<!-- Hero Section -->
+<section class="hero" id="top">
+
+    <div class="rv">
+        <div class="pillar-badge">Restaurant · Fort Worth · All-Day Brasserie · Raw Bar & Cellar</div>
+        <h1 class="hero-title">Don Artemio</h1>
+        <p class="hero-lead">Don Artemio is a culinary space in which the flavors of the cuisine of Northeast Mexico are recreated with contemporary airs in Fort Worth, TX.</p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="#menu" class="btn-main">View menu</a>
+            <a href="#visit" class="btn-alt">Hours & Directions</a>
+        </div>
+    </div>
+    <div class="hero-media-wrap rv">
+        <img src="img/p0.jpg" alt="Don Artemio interior atmosphere" loading="eager">
+    </div>
+
+</section>
+
+<!-- Highlights Photo Strip -->
 <div class="strip"></div>
-<section id="story"><div class="wrap two flip"><div class="rv"><span class="eyebrow">About</span><h2>The essentials</h2><div class="facts"><div class="fact"><b>Find us</b><span>3268 W 7th St, Fort Worth, TX 76107</span></div><div class="fact"><b>Call</b><span>(817) 470-1439</span></div></div></div><div class="imgf rv"><img src="img/p1.jpg" alt="Don Artemio"></div></div></section><section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv" style="background-image:url('img/p7.jpg')"><a class="btn p" href="https://www.donartemio.us/menus/" target="_blank" rel="noopener">View the full menu</a></div></div></section><section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv"><img src="img/p0.jpg" alt="" loading="lazy"><img src="img/p1.jpg" alt="" loading="lazy"><img src="img/p2.jpg" alt="" loading="lazy"><img src="img/p3.jpg" alt="" loading="lazy"></div></div></section><section class="alt" id="visit"><div class="wrap two"><div class="rv"><span class="eyebrow">Visit</span><h2>Plan your visit</h2><p class="lead">3268 W 7th St, Fort Worth, TX 76107</p><a class="btn p" href="tel:+18174701439">Call now</a><a class="btn s" href="https://www.google.com/maps/search/?api=1&query=3268%20W%207th%20St%2C%20Fort%20Worth%2C%20TX%2076107" target="_blank" rel="noopener">Get directions</a><a class="btn s" href="mailto:info@donartemio.us">Email</a></div><iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q=3268%20W%207th%20St%2C%20Fort%20Worth%2C%20TX%2076107&output=embed"></iframe></div></section><div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="https://www.toasttab.com/don-artemio-3268-w-7th-street/giftcards" target="_blank" rel="noopener">Order online</a></div></div>
-<footer><div class="wrap"><span>&copy; 2026 Don Artemio</span><span><a href="https://www.instagram.com/donartemio.restaurant/" target="_blank" rel="noopener">Instagram</a><a href="https://www.facebook.com/donartemiofortworth" target="_blank" rel="noopener">Facebook</a></span></div></footer>
-<div class="m"><a href="tel:+18174701439">Call</a><a href="https://www.google.com/maps/search/?api=1&query=3268%20W%207th%20St%2C%20Fort%20Worth%2C%20TX%2076107" target="_blank" rel="noopener">Directions</a></div><div class="bar">Demo website concept for Don Artemio</div>
-<script>var h=document.getElementById('h');function s(){h.classList.toggle('on',scrollY>40)}s();addEventListener('scroll',s);
-var o=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting)x.target.classList.add('in')})},{threshold:.1});document.querySelectorAll('.rv').forEach(function(e){o.observe(e)});
-if(innerWidth<860)document.querySelectorAll('video').forEach(function(v){v.remove()})</script></body></html>
+
+<!-- Story Section -->
+
+
+<!-- Menu Section -->
+<section id="menu" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Curated Offerings</span>
+        <h2 class="section-title">Featured Menu & Specialties</h2>
+        <p class="section-intro">Prepared fresh daily with seasonal harvests and time-honored recipes.</p>
+    </div>
+    <div class="menu-container">
+        <p class="menu-link"><a class="btn-main" href="https://www.donartemio.us/menus/" target="_blank" rel="noopener">View the full menu</a></p>
+    </div>
+</section>
+
+<!-- Gallery Section -->
+<section id="gallery" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Ambiance</span>
+        <h2 class="section-title">A Look Inside</h2>
+        <p class="section-intro">A glimpse into our kitchen, dining room, and daily creations.</p>
+    </div>
+    <div class="gallery-container">
+        <div class="gallery-showcase"><figure class="gallery-item"><img src="img/p0.jpg" alt="Don Artemio photo" loading="lazy"></figure><figure class="gallery-item"><img src="img/p1.jpg" alt="Don Artemio photo" loading="lazy"></figure><figure class="gallery-item"><img src="img/p2.jpg" alt="Don Artemio photo" loading="lazy"></figure><figure class="gallery-item"><img src="img/p3.jpg" alt="Don Artemio photo" loading="lazy"></figure><figure class="gallery-item"><img src="img/p4.jpg" alt="Don Artemio photo" loading="lazy"></figure><figure class="gallery-item"><img src="img/p5.jpg" alt="Don Artemio photo" loading="lazy"></figure></div>
+    </div>
+</section>
+
+<!-- Visit / Hours Section -->
+<section id="visit" class="rv">
+    <div class="section-header">
+        <span class="section-tag">Join Us</span>
+        <h2 class="section-title">Hours & Location</h2>
+        <p class="section-intro">Walk-ins always welcome. We look forward to serving you.</p>
+    </div>
+    <div class="visit-hub">
+        <div>
+            <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem; font-family: var(--disp);">Service Hours</h3>
+            <div class="visit-hours-content"><p class="visit-address">3268 W 7th St, Fort Worth, TX 76107</p><p><a class="btn-alt" href="tel:+18174701439">Call (817) 470-1439</a></p><p><a class="btn-alt" href="mailto:info@donartemio.us">Email</a></p></div>
+            <div style="margin-top: 2.2rem;">
+                <a href="https://www.google.com/maps/search/?api=1&query=3268%20W%207th%20St%2C%20Fort%20Worth%2C%20TX%2076107" target="_blank" rel="noopener" class="btn-main">Get Directions on Maps</a>
+            </div>
+        </div>
+        <div class="map-frame">
+            <iframe src="https://maps.google.com/maps?q=Don Artemio&output=embed" loading="lazy"></iframe>
+        </div>
+    </div>
+</section>
+
+<!-- Online Order / Reservation Banner -->
+<div class="rv">
+    <div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="https://www.toasttab.com/don-artemio-3268-w-7th-street/giftcards" target="_blank" rel="noopener">Order online</a></div></div>
+</div>
+
+<!-- Footer -->
+<footer style="border-top: 1px solid var(--line); padding: 4.5rem 2rem 5.5rem; background: var(--bg2); margin-top: 4rem;">
+    <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem;">
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; font-family: var(--disp); margin-bottom: 0.5rem;">Don Artemio</div>
+            <p style="color: var(--mut); font-size: 0.95rem;">&copy; 2026 Don Artemio. All rights reserved.</p>
+        </div>
+        <div class="social-links">
+            <a href="https://www.instagram.com/donartemio.restaurant/" target="_blank" rel="noopener">Instagram</a><a href="https://www.facebook.com/donartemiofortworth" target="_blank" rel="noopener">Facebook</a>
+        </div>
+    </div>
+</footer>
+
+<!-- Mobile Quick Bar -->
+<div class="m">
+    <a href="tel:+18174701439" class="m-call">Call (817) 470-1439</a>
+    <a href="https://www.google.com/maps/search/?api=1&query=3268%20W%207th%20St%2C%20Fort%20Worth%2C%20TX%2076107" target="_blank" rel="noopener" class="m-dir">Directions</a>
+</div>
+
+<script>
+const h = document.getElementById('h');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 40) h.classList.add('on');
+    else h.classList.remove('on');
+});
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            e.target.classList.add('on');
+            observer.unobserve(e.target);
+        }
+    });
+}, { threshold: 0.1 });
+document.querySelectorAll('.rv').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
