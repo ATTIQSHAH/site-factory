@@ -19,7 +19,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     title = soup.title.get_text(" ", strip=True) if soup.title else ""
     desc = soup.find("meta", attrs={"name": "description"})
     robots = soup.find("meta", attrs={"name": re.compile("^robots$", re.I)})
-    visible = re.sub(r"\\s+", " ", soup.get_text(" ", strip=True)).lower()
+    visible = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).lower()
 
     if not title or (business_name and business_name.lower() not in title.lower()):
         fail(15, "missing or mismatched page title")
@@ -84,7 +84,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if not has_menu:
         fail(12, "no menu, ordering or reservation path")
     if phone:
-        digits = re.sub(r"\\D", "", phone)
+        digits = re.sub(r"\D", "", phone)
         page_digits = re.sub(r"\\D", "", document or "")
         if len(digits) >= 7 and digits[-7:] not in page_digits:
             fail(15, "lead phone number missing")
