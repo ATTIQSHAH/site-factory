@@ -14,15 +14,17 @@ def main():
         raise SystemExit("Missing results/websites_tab.csv")
     with RESULTS.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    generated = [row for row in rows if row.get("fetch_status") == "ok" and row.get("batch")]
-    if not generated:
-        raise SystemExit("No successfully generated sites found for review")
-    latest = max(int(row["batch"]) for row in generated)
-    targets = [row for row in generated if int(row["batch"]) == latest]
-    if not targets:
+    batched = [row for row in rows if row.get("batch")]
+    if not batched:
+        raise SystemExit("No generated batch found for review")
+    latest = max(int(row["batch"]) for row in batched)
+    batch_rows = [row for row in batched if int(row["batch"]) == latest]
+    targets = [row for row in batch_rows if row.get("fetch_status") == "ok"]
+    failures = [f'{row.get("Name")}: generation failed ({row.get("fetch_status", "unknown")})'
+                for row in batch_rows if row.get("fetch_status") != "ok"]
+    if not targets and not failures:
         raise SystemExit("Latest batch contains no sites to review")
 
-    failures = []
     for row in targets:
         relative = (row.get("site_path") or "").strip("/")
         site = (SITES / relative).resolve()
