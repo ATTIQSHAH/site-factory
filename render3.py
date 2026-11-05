@@ -310,7 +310,13 @@ body.hero-type .strip img { width:100%; height:260px; object-fit:cover; border-r
 .location-map .map-open { display:inline-flex; font-weight:700; color:var(--acc); text-decoration:underline; text-underline-offset:3px; }
 
 .bento-hero-left .btn-main { background:var(--acc); color:var(--accink); border-color:var(--acc); }
-.bento-hero-left .btn-alt { background:#fff; color:var(--ink); border:1px solid var(--acc); }
+ .bento-hero-left .btn-alt { background:var(--ink); color:var(--bg); border:1px solid var(--ink); padding:1rem 1.5rem; }
+.bento-hero-left .btn-main { padding:1rem 1.5rem; }
+.menu-preview .btn-main { min-height:54px; padding:1rem 1.5rem; font-size:1rem; }
+.strip img, .gallery-item img { object-fit:contain; background:var(--bg2); }
+.hero .bento-hero-left { justify-content:flex-start; gap:1rem; }
+.hero .bento-hero-left .hero-title { margin-top:.5rem; }
+.nav-brand img { max-width:190px; max-height:70px; object-fit:contain; }
 .section-intro, .menu-preview p { color:var(--ink); font-size:1.08rem; line-height:1.7; }
 .story-content { font-size:1.12rem; line-height:1.8; }
 .visit-hub { padding:clamp(2rem,4vw,3rem); }
@@ -336,12 +342,12 @@ a:focus-visible { outline:3px solid var(--acc); outline-offset:4px; border-radiu
 .gallery-showcase { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; }
 .gallery-item { border:0; border-radius:22px; box-shadow:0 12px 28px rgba(43,23,32,.10); }
 .visit-hub { background:var(--bg2); border:0; border-radius:24px; }
-.nav-brand img { max-width:170px; max-height:58px; object-fit:contain; }
+ .nav-brand img { max-width:190px; max-height:70px; object-fit:contain; }
 @media(max-width:900px) {
   .section-header { margin-bottom:1.5rem; }
   .gallery-showcase { grid-template-columns:minmax(0,1fr); }
   .nav-brand { flex:1 1 150px; }
-  .nav-brand img { max-width:145px; max-height:56px; }
+  .nav-brand img { max-width:165px; max-height:64px; }
   .menu-preview { border-width:2px; }
   body.hero-type .strip { display:flex; gap:.85rem; overflow-x:auto; scroll-snap-type:x mandatory; padding:0 1rem 1rem; max-width:100%; grid-template-columns:none; }
   body.hero-type .strip img { flex:0 0 82vw; width:82vw; max-width:82vw; height:250px; object-fit:cover; border-radius:20px; scroll-snap-align:start; }
