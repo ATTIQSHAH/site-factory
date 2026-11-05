@@ -35,8 +35,31 @@ def logo_markup(logo, name, background):
     return '<img src="' + E(path) + '" alt="' + E(name) + '"' + style + '>'
 
 
+def safe_http_url(value):
+    parsed = up.urlsplit(str(value or "").strip())
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc or parsed.username or parsed.password:
+        return ""
+    return str(value).strip()
+
+
+def safe_social_url(value, domain):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if not re.match(r"^https?://", raw, re.I):
+        raw = "https://" + raw.lstrip("/")
+    parsed = up.urlsplit(raw)
+    if parsed.scheme.lower() not in ("http", "https") or parsed.hostname not in (domain, "www." + domain):
+        return ""
+    return raw
+
+
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
+    menu_url = safe_http_url(menu_url)
+    order_url = safe_http_url(d.get("order_url"))
+    ig = safe_social_url(d.get("ig"), "instagram.com")
+    fb = safe_social_url(d.get("fb"), "facebook.com")
     template_file, template_meta = select_template(d["kind"], name=d["name"], about=d.get("about", ""), menu=d.get("menu", []))
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
     if not os.path.isfile(template_path):
@@ -75,7 +98,7 @@ def build3(d):
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     about_anchor = "story" if template_file == "premium.html" else "about"
     secs = [(about_anchor, "About")] if show_story else []
-    has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
+    has_menu = bool(d["menu"] or menu_url); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
     lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
@@ -89,18 +112,20 @@ def build3(d):
             s = i.get("section") or "Menu"
             if s != cur: out += f"<h3>{E(s)}</h3>"; cur = s
             out += f'<div class="it"><div><span>{E(i["name"])}</span><span>{E(i.get("price") or "")}</span></div>' + (f'<small>{E(i["desc"])}</small>' if i.get("desc") else "") + "</div>"
-        link = f'<a class="btn s" href="{E(d["menu_url"])}" target="_blank" rel="noopener">Full menu</a>' if d.get("menu_url") else ""
+        link = f'<a class="btn s" href="{E(menu_url)}" target="_blank" rel="noopener">Full menu</a>' if menu_url else ""
         menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>From the kitchen</h2></div><div class="menu rv">{out}</div>{link}</div></section>'
-    elif d.get("menu_url"):
+    elif menu_url:
         bgi = f"style=\"background-image:url('{E(ph[-1])}')\"" if ph else ""; nc = "" if ph else " nophoto"
-        menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
-    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[2:6]) + "</div></div></section>"
+        menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(menu_url)}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
+    gallery_photos = ph[4:6] if hero == "type" else ph[2:6]
+    if len(gallery_photos) >= 2:
+        gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in gallery_photos) + "</div></div></section>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
     right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
     visit = f'<section class="alt" id="visit"><div class="wrap {"two" if right else ""}"><div class="rv"><span class="eyebrow">Visit</span><h2>Plan your visit</h2>{left}</div>{right}</div></section>'
-    order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(d["order_url"])}" target="_blank" rel="noopener">Order online</a></div></div>' if d.get("order_url") else ""
-    soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", d.get("ig")), ("Facebook", d.get("fb"))] if u)
+    order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(order_url)}" target="_blank" rel="noopener">Order online</a></div></div>' if order_url else ""
+    soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", ig), ("Facebook", fb)] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
         story = '<p>' + E(ab) + '</p>' if ab else ""
@@ -117,8 +142,8 @@ def build3(d):
                 parts.append('<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">' + E(item["name"]) + '</span>' + price + '</div>' + details + '</article>')
             parts.append("</div>")
             menu = "".join(parts)
-        elif d.get("menu_url"):
-            menu = '<a class="btn-main" href="' + E(d["menu_url"]) + '" target="_blank" rel="noopener">View the full menu</a>'
+        elif menu_url:
+            menu = '<a class="btn-main" href="' + E(menu_url) + '" target="_blank" rel="noopener">View the full menu</a>'
         else:
             menu = ""
         gal = '<div class="gallery-showcase">' + "".join(

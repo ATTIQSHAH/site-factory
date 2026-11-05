@@ -383,7 +383,10 @@ def process(r, folder):
             if len(ph) >= 6: break
             ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
-    order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
+    order = next((candidate for a in soup.find_all("a", href=True)
+                  for candidate in [urljoin(base, a["href"])]
+                  if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)
+                  and urlparse(candidate).scheme in ("http", "https") and urlparse(candidate).netloc), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)

@@ -49,7 +49,7 @@ def gem(parts, system=None, js=False):
         endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={KEY}"
         for attempt in range(3):
             try:
-                response = requests.post(endpoint, json=body, timeout=240)
+                response = requests.post(endpoint, json=body, timeout=90)
             except requests.RequestException as exc:
                 last_error = "network error: " + str(exc)[:220]
                 if attempt < 2:
