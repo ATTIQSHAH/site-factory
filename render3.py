@@ -4,9 +4,9 @@ E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
  "ivory": ("#faf6ef", "#f0e8da", "#241a17", "#6b5b54", "#8c2f2b", "rgba(36,26,23,.14)"), "slate": ("#14191f", "#1d242c", "#eef1f4", "#a5b0bb", "#d38b5d", "rgba(255,255,255,.12)"),
- "blush": ("#fbf1ee", "#f4e2dd", "#3a2224", "#7a5c5e", "#b4505a", "rgba(58,34,36,.14)"), "butter": ("#fff8e6", "#f8ecc8", "#33280f", "#6e6140", "#a6650d", "rgba(51,40,15,.14)"),
+ "blush": ("#fbf1ee", "#f4e2dd", "#3a2224", "#7a5c5e", "#b4505a", "rgba(58,34,36,.14)"), "sprinkle": ("#fff8f3", "#fff0e6", "#2b1720", "#6c4a53", "#006f78", "rgba(43,23,32,.13)"), "berry": ("#fff5f6", "#fce6eb", "#321923", "#73525c", "#b72d4e", "rgba(50,25,35,.13)"), "citrus": ("#fff8ed", "#ffecd1", "#2b1a0c", "#6b4e32", "#a84a0a", "rgba(43,26,12,.13)"), "butter": ("#fff8e6", "#f8ecc8", "#33280f", "#6e6140", "#a6650d", "rgba(51,40,15,.14)"),
  "ember": ("#141010", "#1e1816", "#f6efe9", "#b9aaa0", "#e2552b", "rgba(255,255,255,.12)"), "paprika": ("#fff7ee", "#fbe9d4", "#2b1a10", "#6c5445", "#b83b05", "rgba(43,26,16,.14)")}
-THEMES = {"coffee": ["cream", "espresso", "sage"], "restaurant": ["noir", "ivory", "slate"], "bakery": ["blush", "butter", "cream"], "grill": ["ember", "paprika", "slate"]}
+THEMES = {"coffee": ["cream", "espresso", "sage"], "restaurant": ["noir", "ivory", "slate"], "bakery": ["berry", "citrus", "sprinkle"], "grill": ["ember", "paprika", "slate"]}
 FONTS = [("Playfair Display", "Inter", "Playfair+Display:wght@500;700&family=Inter:wght@400;500;600"), ("Fraunces", "DM Sans", "Fraunces:wght@500;700&family=DM+Sans:wght@400;500;600"),
          ("DM Serif Display", "Inter", "DM+Serif+Display&family=Inter:wght@400;500;600"), ("Cormorant Garamond", "Inter", "Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600")]
 def lum(h): h = h.lstrip("#"); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]; c = [x / 12.92 if x <= .03928 else ((x + .055) / 1.055) ** 2.4 for x in c]; return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
@@ -127,9 +127,7 @@ def build3(d):
     if template_file == "premium.html":
         order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(order_url)}" target="_blank" rel="noopener">Order online</a></div></div>' if order_url else ""
     else:
-        target_url = order_url or menu_url
-        action_label = "Order online" if order_url else "View the menu"
-        order = ('<div class="cta-hub"><h2>Ready to explore the menu?</h2><p>Check current offerings and ordering details directly with ' + n + '.</p><a class="btn-main" href="' + E(target_url) + '" target="_blank" rel="noopener">' + action_label + '</a></div>') if target_url else ""
+        order = ('<div class="cta-hub"><h2>Ready to order?</h2><p>Place an order directly with ' + n + '.</p><a class="btn-main" href="' + E(order_url) + '" target="_blank" rel="noopener">Order online</a></div>') if order_url and order_url != menu_url else ""
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", ig), ("Facebook", fb)] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
@@ -148,7 +146,7 @@ def build3(d):
             parts.append("</div>")
             menu = "".join(parts)
         elif menu_url:
-            menu = '<div class="menu-preview"><div><span class="section-tag">Current menu</span><p>Browse the latest selection and availability directly with the business.</p></div><a class="btn-main" href="' + E(menu_url) + '" target="_blank" rel="noopener">View the full menu</a></div>'
+            menu = '<div class="menu-preview"><div><span class="section-tag">Current menu</span><p>Browse the current selection and ordering details on the online menu.</p></div><a class="btn-main" href="' + E(menu_url) + '" target="_blank" rel="noopener">View the full menu</a></div>'
         else:
             menu = ""
         gal = '<div class="gallery-showcase">' + "".join(
@@ -253,7 +251,37 @@ section { border-top: 1px solid var(--line); }
   body.has-scrolled .m { display: flex !important; left: 0; right: 0; bottom: 0; }
 }
 """
+    if d.get("kind") == "bakery":
+        bakery_css = """
+/* Bakery-specific art direction: playful colour, stronger hierarchy, less generic centering */
+.hero .bento-hero-left { background:var(--bg2); border:0; border-left:6px solid var(--acc); border-radius:24px; padding:clamp(2rem,4vw,3.5rem); }
+.bento-quote-frame { background:var(--acc); border:0; border-radius:22px; color:var(--accink); }
+.bento-quote-frame strong, .bento-quote-frame p { color:var(--accink) !important; }
+.pillar-badge { background:#fff; border:1px solid var(--acc); color:var(--ink); }
+.section-header { text-align:left; max-width:900px; margin:0 0 2rem; }
+.section-title { max-width:820px; }
+.story-card-grid { background:var(--bg2); border:0; border-radius:26px; padding:clamp(1.5rem,4vw,3rem); gap:clamp(1.5rem,4vw,3rem); }
+.story-content { max-width:560px; font-size:1.08rem; }
+.story-photo-frame { border:0; border-radius:22px; box-shadow:0 18px 40px rgba(43,23,32,.12); }
+.menu-preview { background:var(--bg2); border:2px solid var(--acc); border-radius:22px; padding:clamp(1.4rem,3vw,2.2rem); }
+.menu-preview .section-tag { color:var(--acc); }
+.menu-preview .btn-main { background:var(--acc); color:var(--accink); border-color:var(--acc); }
+.gallery-showcase { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; }
+.gallery-item { border:0; border-radius:22px; box-shadow:0 12px 28px rgba(43,23,32,.10); }
+.visit-hub { background:var(--bg2); border:0; border-radius:24px; }
+.nav-brand img { max-width:170px; max-height:58px; object-fit:contain; }
+@media(max-width:900px) {
+  .section-header { margin-bottom:1.5rem; }
+  .gallery-showcase { grid-template-columns:minmax(0,1fr); }
+  .nav-brand { flex:1 1 150px; }
+  .nav-brand img { max-width:145px; max-height:56px; }
+  .menu-preview { border-width:2px; }
+}
+"""
+        t = t.replace("</style>", bakery_css + "</style>", 1)
     t = t.replace("</style>", responsive_css + "</style>", 1)
+    if d.get("kind") == "bakery":
+        t = t.replace("</style>", bakery_css + "</style>", 1)
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
     t = re.sub(r'<p([^>]*)>\s*</p>', '', t, flags=re.I)
     if template_file != "premium.html":

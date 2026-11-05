@@ -347,9 +347,9 @@ def process(r, folder):
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
     else: html, info = build3(d)
     open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
-    pts = (2 if own >= 4 else 1 if own >= 2 else 0) + (2 if len(items) >= 5 else 0) + (1 if addr else 0) + (1 if d["hours"] else 0) + (1 if logo else 0) + (1 if len(about) >= 60 else 0)
+    pts = (2 if own >= 4 else 1 if own >= 2 else 0) + (2 if len(items) >= 5 or menu_url or order else 0) + (1 if addr else 0) + (1 if d["hours"] else 0) + (1 if logo else 0) + (1 if len(about) >= 60 else 0)
     d["grade"] = "A" if pts >= 6 else "B" if pts >= 4 else "C"; d["pts"] = pts
-    flags = [x for x, bad in [("no own photos", own < 3), ("no menu", msrc in ("none", "link") and not items), ("no address", not addr), ("no logo", not logo)] if bad]
+    flags = [x for x, bad in [("no own photos", own < 3), ("no menu", not items and not menu_url and not order), ("no address", not addr), ("no logo", not logo)] if bad]
     return d, info, msrc, own, "ok" if not flags else "check: " + ", ".join(flags), html
 def main(src):
     rows = list(csv.DictReader(open(src, encoding="utf-8-sig")))
