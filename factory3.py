@@ -307,6 +307,23 @@ def photos_of(soup, base, folder):
     ppl = [x for x in good if x[0] == "people"]; good = [x[1] for x in good if x[0] != "people"] + [x[1] for x in ppl[:1]]; out = []
     for n, im in enumerate(good[:8]): media.save(im, f"{folder}/img/p{n}.jpg"); out.append(f"img/p{n}.jpg")
     return out
+def about_from_soup(soup):
+    """Extract a source-authored business paragraph without inventing facts."""
+    for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
+        label = heading.get_text(" ", strip=True)
+        if re.search(r"about|our story|who we are|our mission|eat more sweets", label, re.I):
+            paragraph = heading.find_next("p")
+            if paragraph:
+                candidate = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+                if 90 <= len(candidate) <= 700 and not re.search(r"hours|address|phone|email|cookie policy", candidate, re.I):
+                    return candidate
+    for paragraph in soup.find_all("p"):
+        candidate = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+        if 100 <= len(candidate) <= 500 and not re.search(r"hours|address|phone|email|cookie policy|follow us|sign up", candidate, re.I):
+            return candidate
+    return ""
+
+
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
