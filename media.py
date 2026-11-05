@@ -1,7 +1,7 @@
 import base64, io, json, os, re, statistics, time, requests
 from PIL import Image
 UA = {"User-Agent": "Mozilla/5.0 (compatible; DemoSiteBot/1.0)"}
-PEX, GEM, GM = os.getenv("PEXELS_API_KEY", ""), os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+PEX, GEM, GM = os.getenv("PEXELS_API_KEY", ""), os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 def dl(u):
     try: r = requests.get(u, headers=UA, timeout=25); r.raise_for_status(); return r.content, r.headers.get("content-type", "")
     except Exception: return None, ""
