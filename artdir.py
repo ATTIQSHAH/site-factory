@@ -2,7 +2,7 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-3.5-flash-lite")  # verify current model names and free limits
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
