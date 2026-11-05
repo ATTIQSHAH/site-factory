@@ -101,6 +101,34 @@ def build3(d):
     order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(d["order_url"])}" target="_blank" rel="noopener">Order online</a></div></div>' if d.get("order_url") else ""
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", d.get("ig")), ("Facebook", d.get("fb"))] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
+    if template_file != "premium.html":
+        story = '<p>' + E(ab) + '</p>' if ab else ""
+        if d.get("menu"):
+            parts = ['<div class="menu-layout">']
+            current_section = None
+            for item in d["menu"]:
+                section = item.get("section") or "Menu"
+                if section != current_section:
+                    parts.append('<h3 class="menu-section-title">' + E(section) + '</h3>')
+                    current_section = section
+                price = '<span class="menu-item-price-tag">' + E(item.get("price", "")) + '</span>' if item.get("price") else ""
+                details = '<p class="menu-item-details">' + E(item.get("desc", "")) + '</p>' if item.get("desc") else ""
+                parts.append('<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">' + E(item["name"]) + '</span>' + price + '</div>' + details + '</article>')
+            parts.append("</div>")
+            menu = "".join(parts)
+        elif d.get("menu_url"):
+            menu = '<a class="btn-main" href="' + E(d["menu_url"]) + '" target="_blank" rel="noopener">View the full menu</a>'
+        else:
+            menu = ""
+        gal = '<div class="gallery-showcase">' + "".join(
+            '<div class="gallery-item"><img src="' + E(photo) + '" alt="' + E(d["name"]) + '"></div>'
+            for photo in ph[2:6]
+        ) + '</div>' if len(ph) >= 4 else ""
+        visit = ('<table class="hours-list"><tbody>' + "".join(
+            '<tr><td>' + E(day) + '</td><td>' + E(hours) + '</td></tr>' for day, hours in d["hours"]
+        ) + '</tbody></table>') if d["hours"] else (
+            '<p>' + E(d["address"]) + '</p>' if d.get("address") else ""
+        )
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
@@ -121,5 +149,16 @@ def build3(d):
     if 'name="robots"' not in t.lower() and "name='robots'" not in t.lower():
         t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>', 1)
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
+    t = re.sub(r'<p([^>]*)>\s*</p>', '', t, flags=re.I)
+    t = t.replace("Daily Bake Schedule", "View details").replace("Direct Line", "Call the business")
+    t = t.replace("Experience seasonal ingredients and dedicated hospitality curated every morning.", "Explore the menu and visit information below.")
+    if template_file != "premium.html":
+        if len(ph) > 1:
+            t = re.sub(r'(<div class="story-photo-frame">\s*<img src=")[^"]+(")', lambda match: match.group(1) + E(ph[1]) + match.group(2), t, count=1)
+        else:
+            t = re.sub(r'<div class="story-photo-frame">[\s\S]*?</div>', '', t, count=1)
+        if not ph:
+            t = re.sub(r'<div class="bento-img-frame">[\s\S]*?</div>', '', t, count=1)
+        t = re.sub(r'<img([^>]+)src=""([^>]*)>', '', t, flags=re.I)
     return t, {"theme": th, "hero": hero, "template_file": template_file,
                "template_id": template_meta.get("id", ""), "template_status": "selected"}
