@@ -171,32 +171,40 @@ def hours_of(biz, text):
     def parse(source):
         pattern = re.compile(rf"({day})(?:\s*(?:-|–|to|through)\s*({day}))?\s*[:,-]?\s*{clock}\s*(?:-|–|to)\s*{clock}", re.I)
         rows = []
+        day_names = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}
         for match in pattern.finditer(source or ""):
-            day_names = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}
             first_raw, last_raw = match.group(1).title(), (match.group(2) or "").title()
             first, last = day_names.get(first_raw, first_raw), day_names.get(last_raw, last_raw)
             label = f"{first} to {last}" if last else first
             rows.append((label, f"{fmt(match.group(3))} to {fmt(match.group(4))}"))
         return list(dict.fromkeys(rows))
+
+    def merge_ranges(rows):
+        ranges = [row for row in rows if " to " in row[0]]
+        if not ranges:
+            return rows[:7]
+        week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        covered = set()
+        for label, _ in ranges:
+            if " to " not in label:
+                continue
+            first, last = label.split(" to ", 1)
+            if first not in week or last not in week:
+                continue
+            start, end = week.index(first), week.index(last)
+            covered.update(week[start:end + 1] if start <= end else week[start:] + week[:end + 1])
+        ranges.extend(row for row in rows if row[0] in week and row[0] not in covered)
+        return ranges[:7]
+
     visible = parse(text)
     if visible:
-        ranges = [row for row in visible if " to " in row[0]]
-        if ranges:
-            full_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-            ranges.extend(row for row in visible if row[0] in full_days and row not in ranges)
-        return (ranges or visible)[:7]
+        return merge_ranges(visible)
     schema = biz.get("openingHours") or []
     schema = [schema] if isinstance(schema, str) else schema
     parsed = []
     for entry in schema:
         parsed.extend(parse(str(entry)))
-    if parsed:
-        ranges = [row for row in parsed if " to " in row[0]]
-        if ranges:
-            full_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-            ranges.extend(row for row in parsed if row[0] in full_days and row not in ranges)
-        return (ranges or parsed)[:7]
-    return []
+    return merge_ranges(parsed) if parsed else []
 
 
 def address_of(biz, text, soup=None):
