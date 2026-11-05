@@ -13,7 +13,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 import artdir
-from site_quality import assess_html
+from site_quality import assess_html, _external_menu_path
 
 
 def main():
@@ -100,11 +100,7 @@ def main():
     has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
         "menu_card_count": menu_count,
-        "has_menu_or_order_path": menu_count >= 3 or any(
-            re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I)
-            and a.get("href", "").strip().lower().startswith(("https://", "http://"))
-            for a in soup.find_all("a", href=True)
-        ),
+        "has_menu_or_order_path": menu_count >= 3 or _external_menu_path(soup),
         "hours_row_count": hours_count,
         "has_opening_hours": hours_count > 0,
         "has_street_address": has_address,
