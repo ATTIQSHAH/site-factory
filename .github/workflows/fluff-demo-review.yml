@@ -10,6 +10,7 @@ on:
       - "render3.py"
       - "templates/**"
       - "review_site.py"
+      - "site_quality.py"
       - ".github/workflows/fluff-demo-review.yml"
       - "leads/input.csv"
   workflow_dispatch:
@@ -64,6 +65,6 @@ jobs:
             sites/fluff-bake-bar/index.html
             sites/fluff-bake-bar/img/**
             review/fluff-bake-bar/**
-            results/websites_tab.csv
+            results/fluff-demo-websites.csv
           if-no-files-found: warn
           retention-days: 14

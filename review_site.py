@@ -58,7 +58,7 @@ def main():
                 screenshots[label] = shot_path.read_bytes()
                 metrics = page.evaluate("""() => {
                   const rect = e => { const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height}; };
-                  const cards=[...document.querySelectorAll('.menu-card')].map(rect);
+                  const cards=[...document.querySelectorAll('.menu-card, .it')].map(rect);
                   const columns=new Set(cards.map(r=>Math.round(r.x/12)*12)).size;
                   const hero=document.querySelector('.hero');
                   const bar=document.querySelector('.m');
