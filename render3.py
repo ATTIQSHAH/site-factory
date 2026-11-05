@@ -93,7 +93,7 @@ def build3(d):
     if len(ph) >= 4:
         gal = '<div class="gallery-showcase">' + "".join(
             f'<figure class="gallery-item"><img src="{E(p)}" alt="{E(d["name"])} photo" loading="lazy"></figure>'
-            for p in ph[:6]
+            for p in ph[2:6]
         ) + "</div>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     hours_table = f'<table class="hours-list"><tbody>{hrs}</tbody></table>' if hrs else ""
