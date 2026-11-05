@@ -48,7 +48,7 @@ jobs:
           BASE_URL: ""
 
       - name: Capture mobile and desktop screenshots and run quality checks
-        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar
+        run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
