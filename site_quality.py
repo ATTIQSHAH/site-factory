@@ -104,3 +104,5 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     passed = score >= 90 and not blocking
     return {"score": score, "passed": passed, "status": "ready" if passed else "needs_review",
             "issues": issues, "blocking_issues": blocking}
+
+# production review improvements
