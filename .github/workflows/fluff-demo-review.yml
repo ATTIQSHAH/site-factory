@@ -10,19 +10,12 @@ on:
       - "render3.py"
       - "templates/**"
       - "review_site.py"
-      - "site_quality.py"
-      - "business_intel.py"
-      - "template_catalog.py"
       - ".github/workflows/fluff-demo-review.yml"
       - "leads/input.csv"
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: fluff-bake-bar-demo
-  cancel-in-progress: true
 
 jobs:
   generate-and-review:
@@ -44,16 +37,13 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      - name: Clear previous isolated demo output
-        run: |
-          rm -rf sites/fluff-bake-bar
-          rm -f results/websites_tab.csv
-
       - name: Generate only Fluff Bake Bar
         run: python factory3.py leads/input.csv
         env:
           ONLY_WEBSITE: https://fluffbakebar.com
           MAX_PER_RUN: "1"
+          RESULTS: results/fluff-demo-websites.csv
+          SITES_DIR: sites
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
           AI_DESIGN: ${{ vars.AI_DESIGN }}

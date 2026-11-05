@@ -67,11 +67,8 @@ def main():
                     rect(hero).y < window.innerHeight && rect(hero).y+rect(hero).h > (window.innerHeight-rect(bar).h));
                   const sources=[...document.images].map(i=>i.currentSrc||i.src).filter(Boolean);
                   const duplicates=sources.filter((src,i)=>sources.indexOf(src)!==i);
-                  const overflowElements=[...document.querySelectorAll('body *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName, id:el.id, className:typeof el.className==='string'?el.className:'', left:Math.round(r.left), right:Math.round(r.right), width:Math.round(r.width)};}).filter(x=>x.right>window.innerWidth+2||x.left < -2).sort((a,b)=>b.right-a.right).slice(0,8);
                   return {
                     horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth+2,
-                    document_width: document.documentElement.scrollWidth,
-                    overflow_elements: overflowElements,
                     broken_images: [...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.currentSrc||i.src),
                     menu_card_count: cards.length,
                     menu_columns: columns,
@@ -96,17 +93,20 @@ def main():
     soup = BeautifulSoup(html, "html.parser")
     business = args.business or (soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "")
     tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
-    quality = assess_html(html, business, tel, require_hours=args.require_hours)
-    menu_count = quality.get("menu_card_count", 0)
-    hours_count = len(soup.select(".hours tr, .hours-list tr, .hours-table tr, [itemprop='openingHours']"))
+    quality = assess_html(html, business, tel)
+    menu_count = len(soup.select(".menu-card, .it"))
+    hours_count = len(soup.select(".hours-list tr, .hours tr"))
     visible = soup.get_text(" ", strip=True)
     has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
         "menu_card_count": menu_count,
-        "has_menu_or_order_path": quality.get("has_menu_path", False),
+        "has_menu_or_order_path": menu_count >= 3 or any(
+            re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I)
+            and a.get("href", "").strip().lower().startswith(("https://", "http://"))
+            for a in soup.find_all("a", href=True)
+        ),
         "hours_row_count": hours_count,
         "has_opening_hours": hours_count > 0,
-        "hours_required": args.require_hours,
         "has_street_address": has_address,
         "has_click_to_call": bool(soup.select_one('a[href^="tel:"]')),
     }
@@ -144,9 +144,10 @@ def main():
         "data_checks": data_checks,
         "browser_checks": checks,
         "visual_review": visual_review,
-        "passed": quality["passed"] and browser_passed and data_checks["has_menu_or_order_path"] and
+        "passed": quality["passed"] and browser_passed and
+                  data_checks["has_menu_or_order_path"] and data_checks["has_click_to_call"] and
+                  data_checks["has_street_address"] and
                   (not args.require_hours or data_checks["has_opening_hours"]) and
-                  data_checks["has_click_to_call"] and data_checks["has_street_address"] and
                   visual_review["status"] == "passed",
     }
     (report_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")

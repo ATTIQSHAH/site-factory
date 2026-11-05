@@ -1,328 +1,62 @@
 """v3: lead CSV -> real extraction (photos, logo, menu incl. AI reading, address, hours) -> themed premium site -> audit -> results CSV."""
-import csv, json, os, re, sys, time
-from urllib.parse import urljoin, urlparse
+import csv, os, re, sys, time, shutil
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-import media, artdir, library
+import media, artdir, library, business_intel
 from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
-from business_intel import classify_business
 from render3 import build3, niche
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
 BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN", "30"))
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
 DAY = r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*"
-def suppress_ambiguous_menu_prices(items):
-    """Drop menu cards when a repeated price strongly suggests a parsing error."""
-    prices = [str(item.get("price", "")).strip() for item in items if str(item.get("price", "")).strip()]
-    if len(prices) >= 3:
-        counts = Counter(prices)
-        value, count = counts.most_common(1)[0]
-        if value and count >= 3 and count / len(prices) >= 0.6:
-            return []
-    return items
-
-
 def menu_text(h):
-    soup = BeautifulSoup(h, "html.parser")
-    for node in soup(["script", "style", "nav", "footer", "header"]):
-        node.decompose()
-    lines = [re.sub(r"\s+", " ", line).strip() for line in soup.get_text("\n").split("\n") if line.strip()]
-    items, section, pending = [], "", None
-
-    def add(name, price):
-        name = name.strip(" .-–·$|")
-        if 3 <= len(name) <= 60 and len(re.findall(r"[A-Za-z]", name)) >= 3 and "$" not in name and not BAD.match(name):
-            if _norm_menu_name(name) not in {_norm_menu_name(item["name"]) for item in items}:
-                items.append({"section": section, "name": name, "price": price, "desc": ""})
-
-    for line in lines:
-        price_match = re.search(r"(\$\s?\d+(?:\.\d{2})?)\s*$", line)
-        if price_match:
-            price = re.sub(r"\s+", "", price_match.group(1))
-            name = line[:price_match.start()].strip()
-            if name:
-                add(name, price)
-            elif pending:
-                add(pending, price)
-            pending = None
-            continue
-        if re.fullmatch(r"\$\s?\d+(?:\.\d{2})?", line):
-            if pending:
-                add(pending, re.sub(r"\s+", "", line))
-                pending = None
-            continue
-        if re.search(r"@|https?://", line) or len(line) > 160:
-            continue
-        if pending:
-            if len(pending.split()) <= 2 and not re.search(r"[.!?]", pending):
-                section = pending.title()
-            elif items and not items[-1]["desc"] and len(pending) >= 18:
-                items[-1]["desc"] = pending
-            pending = line
-        else:
-            pending = line
-    if len(items) >= 5:
-        return items[:24]
-    return []
-
-
-def _norm_menu_name(value):
-    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
-
-
-def product_items_from_html(document):
-    soup = BeautifulSoup(document or "", "html.parser")
-    found = []
-    def walk(value):
-        if isinstance(value, list):
-            for child in value:
-                walk(child)
-        elif isinstance(value, dict):
-            types = value.get("@type", [])
-            types = [types] if isinstance(types, str) else types
-            if any(str(kind).lower() in {"product", "menuitem"} for kind in types):
-                name = str(value.get("name", "")).strip()
-                offers = value.get("offers", {})
-                if isinstance(offers, list):
-                    offers = offers[0] if offers else {}
-                if isinstance(offers, dict):
-                    price = str(offers.get("price", "")).strip()
-                    currency = str(offers.get("priceCurrency", "")).strip().upper()
-                    formatted = (currency + " " if currency else "$") + price if price else ""
-                else:
-                    formatted = ""
-                if name and formatted:
-                    found.append({"section": "", "name": name.title(), "price": formatted,
-                                  "desc": str(value.get("description", "")).strip()})
-            for child in value.values():
-                if isinstance(child, (dict, list)):
-                    walk(child)
-    for script in soup.select('script[type="application/ld+json"]'):
-        try:
-            walk(json.loads(script.string or script.get_text()))
-        except (ValueError, TypeError):
-            continue
-    return found
-
-
-def about_from_soup(soup):
-    for paragraph in soup.find_all("p"):
-        text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
-        if len(text) < 80 or len(text.split()) < 12:
-            continue
-        if re.search(r"@|\b(?:tel|phone|call|hours|open daily)\b|\b\d{3}[-.) ]?\d{3}[- ]?\d{4}\b|\b\d{2,5}\s+\w+\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd)\b", text, re.I):
-            continue
-        return text
-    return ""
-
-
-def select_test_rows(rows, target=None, limit=30):
-    valid = [row for row in rows if row.get("Website")]
-    if target:
-        wanted = target.strip().rstrip("/").lower()
-        selected = [row for row in valid if row["Website"].strip().rstrip("/").lower() == wanted]
-        if not selected:
-            raise ValueError("Requested website was not found in the lead file: " + target)
-        return selected[:max(1, int(limit))]
-    return valid[:max(0, int(limit))]
-
+    s = BeautifulSoup(h, "html.parser")
+    for t in s(["script", "style", "nav", "footer", "header"]): t.decompose()
+    items, cur, seen = [], "", set()
+    for l in [x.strip() for x in s.get_text("\n").split("\n") if x.strip()]:
+        m = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", l)
+        if m:
+            nm = l[:m.start()].strip(" .-–·$|"); pr = " / ".join(re.sub(r"\s", "", p) for p in re.findall(r"\$\s?\d+(?:\.\d{2})?", m.group(1))[:2])
+            if 3 <= len(nm) <= 60 and len(re.findall(r"[A-Za-z]", nm)) >= 3 and "$" not in nm and not BAD.match(nm) and nm.lower() not in seen: seen.add(nm.lower()); items.append({"section": cur, "name": nm, "price": pr, "desc": ""})
+        elif 2 < len(l) < 30 and not re.search(r"\d|@|http", l): cur = l.title()
+        elif items and not items[-1]["desc"] and 15 < len(l) < 160 and "$" not in l: items[-1]["desc"] = l
+    return items[:24] if len(items) >= 5 else []
 def get_menu(soup, base):
-    anchors = soup.find_all("a", href=True)
-    valid = [a for a in anchors if not a["href"].strip().startswith(("#", "javascript:", "mailto:", "tel:"))]
-    link = next((urljoin(base, a["href"]) for a in valid
-                 if re.search(r"menu", a["href"] + a.get_text(" ", strip=True), re.I)
-                 and not a["href"].lower().split("?")[0].endswith(".pdf")), None)
-    if not link:
-        link = next((urljoin(base, a["href"]) for a in valid
-                     if re.search(r"order|shop|store|online", a["href"] + a.get_text(" ", strip=True), re.I)), None)
-
-    pages = [soup]
-    items = product_items_from_html(str(soup))
-    src = "structured" if items else "none"
-    if link and not items:
-        response = None
-        try:
-            response = get(link)
-            items = product_items_from_html(response.text) or menu_text(response.text)
-            pages.append(BeautifulSoup(response.text, "html.parser"))
-        except Exception:
-            pass
-        if items:
-            src = "structured" if response and product_items_from_html(response.text) else "text"
-        else:
-            src = "link"
+    link = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"menu", a["href"] + a.get_text(), re.I) and not a["href"].lower().endswith(".pdf") and "order" not in a.get_text().lower()), None)
+    pages, items, src = [soup], [], "none"
+    if link:
+        try: r = get(link); items = menu_text(r.text); pages.append(BeautifulSoup(r.text, "html.parser"))
+        except Exception: pass
+        src = "text" if items else "link"
     if not items:
-        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for page in pages for a in page.find_all("a", href=True)
-                                   if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
-        imgs = list(dict.fromkeys(urljoin(base, image.get("src")) for page in pages for image in page.find_all("img")
-                                  if image.get("src") and re.search(r"menu", image["src"] + (image.get("alt") or ""), re.I)
-                                  and re.search(r"\.(jpe?g|png|webp)", image["src"], re.I)))
-        for url, mime in [(value, "application/pdf") for value in pdfs[:2]] + [(value, "image/jpeg") for value in imgs[:2]]:
-            data, content_type = media.dl(url)
-            items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (content_type.split(";")[0] or mime))
-            if len(items) >= 5:
-                src = "ai"
-                link = link or url
-                break
+        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for p in pages for a in p.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
+        imgs = list(dict.fromkeys(urljoin(base, i.get("src")) for p in pages for i in p.find_all("img") if i.get("src") and re.search(r"menu", i["src"] + (i.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", i["src"], re.I)))
+        for u, mime in [(x, "application/pdf") for x in pdfs[:2]] + [(x, "image/jpeg") for x in imgs[:2]]:
+            data, ct = media.dl(u); items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (ct.split(";")[0] or mime))
+            if len(items) >= 5: src = "ai"; link = link or u; break
             items = []
-        if not items and pdfs and not link:
-            link, src = pdfs[0], "link"
+        if not items and pdfs and not link: link, src = pdfs[0], "link"
     return items, link, src
-
-
 def hours_of(biz, text):
-    day_names = {
-        "mo":"Monday", "mon":"Monday", "tu":"Tuesday", "tue":"Tuesday", "we":"Wednesday",
-        "wed":"Wednesday", "th":"Thursday", "thu":"Thursday", "fr":"Friday", "fri":"Friday",
-        "sa":"Saturday", "sat":"Saturday", "su":"Sunday", "sun":"Sunday",
-    }
-    day_pattern = r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
-    time_pattern = r"(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?"
-
-    def fmt(hour, minute, meridiem):
-        h = int(hour)
-        suffix = "AM" if meridiem.lower() == "a" else "PM"
-        return str(h) + (":" + minute if minute and minute != "00" else "") + " " + suffix
-
-    visible = []
-    pattern = re.compile(
-        rf"({day_pattern})(?:\s*(?:-|–|to|through)\s*({day_pattern}))?\s*[:\-]?\s*"
-        r"(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?\s*(?:-|–|to)\s*"
-        r"(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?", re.I
-    )
-    for match in pattern.finditer(text or ""):
-        start_day = day_names.get(match.group(1)[:3].lower(), match.group(1).title())
-        end_day = day_names.get((match.group(2) or match.group(1))[:3].lower(), (match.group(2) or match.group(1)).title())
-        start = fmt(match.group(3), match.group(4), match.group(5))
-        end = fmt(match.group(6), match.group(7), match.group(8))
-        label = start_day if start_day == end_day else start_day + " to " + end_day
-        visible.append((label, start + " to " + end))
-    if visible:
-        ranges = [row for row in visible if " to " in row[0]]
-        if ranges:
-            order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-            covered = set()
-            for label, _ in ranges:
-                start_day, end_day = label.split(" to ", 1)
-                if start_day in order and end_day in order:
-                    covered.update(order[order.index(start_day):order.index(end_day) + 1])
-            result = list(ranges)
-            seen_labels = {row[0] for row in result}
-            for row in visible:
-                if row[0] not in covered and row[0] not in seen_labels:
-                    result.append(row)
-                    seen_labels.add(row[0])
-            return result[:7]
-        result, seen_labels = [], set()
-        for row in visible:
-            if row[0] not in seen_labels:
-                result.append(row)
-                seen_labels.add(row[0])
-        return result[:7]
-
-    schema = biz.get("openingHours")
-    schema = [schema] if isinstance(schema, str) else (schema or [])
-    rows = []
-    schema_pattern = re.compile(
-        rf"({day_pattern})(?:\s*[-–]\s*({day_pattern}))?\s+"
-        r"(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})", re.I
-    )
-    for value in schema:
-        match = schema_pattern.search(str(value))
-        if not match:
-            continue
-        start_day = day_names.get(match.group(1)[:3].lower(), match.group(1).title())
-        end_day = day_names.get((match.group(2) or match.group(1))[:3].lower(), (match.group(2) or match.group(1)).title())
-        def clock(value):
-            hour, minute = map(int, value.split(":"))
-            return fmt(hour % 12 or 12, str(minute).zfill(2), "a" if hour < 12 else "p")
-        label = start_day if start_day == end_day else start_day + " to " + end_day
-        rows.append((label, clock(match.group(3)) + " to " + clock(match.group(4))))
-    return list(dict.fromkeys(rows))[:7] if len(rows) >= 2 else []
-
-def address_of(biz, text, soup=None):
-    value = biz.get("address") if isinstance(biz, dict) else None
-    locality = ""
-    if isinstance(value, dict):
-        locality = str(value.get("addressLocality", "")).strip()
-        street = str(value.get("streetAddress", "")).strip()
-        region = str(value.get("addressRegion", "")).strip()
-        postal = str(value.get("postalCode", "")).strip()
-        if street:
-            parts = [street, locality, region, postal]
-            return ", ".join(part for part in parts if part), locality
-    elif isinstance(value, str):
-        value_match = re.search(r"([A-Z][A-Za-z .'-]+?),?\s+([A-Z]{2})\s+(\d{5})", value)
-        if value_match:
-            locality = value_match.group(1).strip()
-
-    source_parts = [text or ""]
-    if soup is not None:
-        source_parts.extend([soup.get_text(" ", strip=True), str(soup)])
-    source = " ".join(source_parts)
-    full = re.compile(
-        r"(\d{1,6}\s+[A-Za-z0-9 .'-]+?\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b),?\s*"
-        r"([A-Za-z .'-]+?),?\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?", re.I
-    ).search(source)
-    if full:
-        street, city, region, postal = full.groups()
-        return f"{street.strip()}, {city.strip()}, {region.upper()} {postal}", city.strip()
-
-    street_match = re.search(
-        r"(\d{1,6}\s+[A-Za-z0-9 .'-]+?\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b)",
-        source, re.I
-    )
-    if street_match:
-        street = street_match.group(1).strip()
-        tail = source[street_match.end():street_match.end() + 100]
-        postal_match = re.search(r"\b(\d{5})(?:-\d{4})?\b", tail)
-        suffix = postal_match.group(1) if postal_match else ""
-        if locality:
-            return ", ".join(part for part in (street, locality, suffix) if part), locality
-        return (street + (", " + suffix if suffix else "")), ""
-
-    if not locality:
-        locality_match = re.search(r"\b([A-Z][A-Za-z .'-]+),\s*[A-Z]{2}\s+\d{5}\b", source)
-        if locality_match:
-            locality = locality_match.group(1).strip()
-    return "", locality
-
-
-def location_details(soup, base, biz, text):
-    address, city = address_of(biz, text, soup)
-    if address:
-        return address, city
-    candidates = []
-    for anchor in soup.find_all("a", href=True):
-        label = anchor.get_text(" ", strip=True) + " " + anchor.get("href", "")
-        if not re.search(r"contact|location|visit|find.?us|directions", label, re.I):
-            continue
-        target = urljoin(base, anchor["href"])
-        target_host = urlparse(target).netloc.lower().removeprefix("www.")
-        base_host = urlparse(base).netloc.lower().removeprefix("www.")
-        if target_host != base_host:
-            continue
-        if target.rstrip("/") == base.rstrip("/"):
-            continue
-        if target not in candidates:
-            candidates.append(target)
-    for target in candidates[:3]:
-        try:
-            response = get(target)
-            location_soup = BeautifulSoup(response.text, "html.parser")
-            location_biz = next(iter(ld(location_soup)), biz)
-            address, location_city = address_of(
-                location_biz, (text or "") + " " + location_soup.get_text(" ", strip=True), location_soup
-            )
-            if address:
-                return address, location_city or city
-            city = location_city or city
-        except Exception:
-            continue
-    return "", city
-
-
+    oh = biz.get("openingHours"); oh = [oh] if isinstance(oh, str) else (oh or []); rows = []
+    for x in oh:
+        m = re.match(r"([A-Za-z,\- ]+?)\s+(\d{1,2}:\d{2}-\d{1,2}:\d{2})", x)
+        if m: rows.append((re.sub(r"\b(Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda k: {"Mo": "Mon", "Tu": "Tue", "We": "Wed", "Th": "Thu", "Fr": "Fri", "Sa": "Sat", "Su": "Sun"}[k.group(1)], m.group(1).strip()).replace("-", " to "), m.group(2).replace("-", " to ")))
+    def t12(x): return re.sub(r"\b(\d{1,2}):(\d{2})\b", lambda k: (str(int(k.group(1)) % 12 or 12) + ("" if k.group(2) == "00" else ":" + k.group(2)) + (" AM" if int(k.group(1)) < 12 else " PM")), x)
+    rows = [(a, t12(b)) for a, b in rows]
+    if rows: return rows[:7] if (len(rows) >= 3 or any(" to " in r[0] for r in rows)) else []
+    for m in re.finditer(rf"({DAY}(?:\s*(?:-|–|to|through)\s*{DAY})?)\s*[:\-]?\s*(\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?\s*(?:-|–|to)\s*\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?)", text, re.I):
+        rows.append((m.group(1).strip().title(), re.sub(r"\s*(-|–)\s*", " to ", m.group(2).strip())))
+        if len(rows) == 7: break
+    rows = list(dict.fromkeys(rows))
+    return rows if len(rows) >= 3 or any(" to " in r[0] or "–" in r[0] or "-" in r[0] for r in rows) else []  # hide fragments, never show wrong hours
+def address_of(biz, text):
+    a = biz.get("address") if isinstance(biz.get("address"), dict) else {}
+    if a.get("streetAddress"): return ", ".join(str(a[x]) for x in ("streetAddress", "addressLocality", "addressRegion", "postalCode") if a.get(x)), a.get("addressLocality", "")
+    m = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
+    return (re.sub(r"\s+", " ", m.group(1)), m.group(2).strip()) if m else ("", "")
 def photos_of(soup, base, folder):
     c = []
     for m in soup.find_all("meta", attrs={"property": re.compile("og:image|twitter:image")}): c.append(m.get("content"))
@@ -333,7 +67,7 @@ def photos_of(soup, base, folder):
     c += re.findall(r"url\(['\"]?([^'\")]+)", str(soup)[:400000])
     urls = [urljoin(base, u) for u in dict.fromkeys(x for x in c if x) if not re.search(r"logo|icon|sprite|avatar|favicon|\.svg|\.gif|pixel|spacer", u, re.I) and re.search(r"\.(jpe?g|png|webp)|image", u, re.I)]
     good, hashes = [], []
-    for u in urls[:12]:
+    for u in urls[:20]:
         b, _ = media.dl(u); im = media.photo(b) if b else None
         if im is None: continue
         h = media.ahash(im)
@@ -344,23 +78,36 @@ def photos_of(soup, base, folder):
     ppl = [x for x in good if x[0] == "people"]; good = [x[1] for x in good if x[0] != "people"] + [x[1] for x in ppl[:1]]; out = []
     for n, im in enumerate(good[:8]): media.save(im, f"{folder}/img/p{n}.jpg"); out.append(f"img/p{n}.jpg")
     return out
+def suppress_ambiguous_menu_prices(rows):
+    """Remove prices that are clearly unreliable because nearly every item has the same price."""
+    rows = [dict(item) for item in (rows or [])]
+    prices = [re.sub(r"\s+", "", str(item.get("price", ""))).lower() for item in rows]
+    prices = [price for price in prices if price]
+    if len(prices) >= 3:
+        counts = Counter(prices)
+        value, count = counts.most_common(1)[0]
+        if count >= 3 and count / len(prices) >= 0.8:
+            if count == len(prices):
+                return []
+            for item in rows:
+                if re.sub(r"\s+", "", str(item.get("price", ""))).lower() == value:
+                    item["price"] = ""
+    return rows
+
+
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip()
+    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip(); kind, q = niche(name)
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else about_from_soup(soup)
-    addr, city = location_details(soup, u, biz, text)
-    items, menu_url, msrc = get_menu(soup, base)
+    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
+    addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
     items = suppress_ambiguous_menu_prices(items)
-    title_text = soup.title.get_text(" ", strip=True) if soup.title else ""
-    headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])[:20]]
-    schema_types = [value for entry in (ld(soup) or []) for value in (
-        entry.get("@type", []) if isinstance(entry.get("@type"), list) else [entry.get("@type", "")]
-    ) if value]
-    kind, q, classification = classify_business(
-        name=name, title=title_text, description=about, headings=headings,
-        menu_items=items, schema_types=schema_types
+    headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])[:30]]
+    schema_types = [biz.get("@type", [])] if biz.get("@type") else []
+    kind, q, classification = business_intel.classify_business(
+        name=name, title=soup.title.get_text(" ", strip=True) if soup.title else "",
+        description=about, headings=headings, menu_items=items, schema_types=schema_types
     )
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: kind = library.classify(name, about, items, kind)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
@@ -383,12 +130,9 @@ def process(r, folder):
             if len(ph) >= 6: break
             ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
-    order = next((candidate for a in soup.find_all("a", href=True)
-                  for candidate in [urljoin(base, a["href"])]
-                  if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)
-                  and urlparse(candidate).scheme in ("http", "https") and urlparse(candidate).netloc), None)
+    order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "classification": classification}
+         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
     elif os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
@@ -400,20 +144,18 @@ def process(r, folder):
     flags = [x for x, bad in [("no own photos", own < 3), ("no menu", msrc in ("none", "link") and not items), ("no address", not addr), ("no logo", not logo)] if bad]
     return d, info, msrc, own, "ok" if not flags else "check: " + ", ".join(flags), html
 def main(src):
-    raw_rows = list(csv.DictReader(open(src, encoding="utf-8-sig")))
-    target = os.getenv("ONLY_WEBSITE", "").strip()
-    try:
-        rows = select_test_rows(raw_rows, target or None, limit=os.getenv("MAX_PER_RUN", "30"))
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
+    rows = list(csv.DictReader(open(src, encoding="utf-8-sig")))
+    only_website = os.getenv("ONLY_WEBSITE", "").strip().rstrip("/").lower()
+    if only_website:
+        matches = [row for row in rows if row.get("Website", "").strip().rstrip("/").lower() == only_website]
+        if len(matches) != 1:
+            raise SystemExit(f"ONLY_WEBSITE must match exactly one lead; found {len(matches)} for {only_website}")
+        rows = matches
     done = {}
-    if os.path.exists(RES):
-        done = {row["Website"]: row for row in csv.DictReader(open(RES, encoding="utf-8"))}
-    if target:
-        for key in list(done):
-            if key.strip().rstrip('/') == target:
-                done.pop(key, None)
+    if os.path.exists(RES): done = {r["Website"]: r for r in csv.DictReader(open(RES, encoding="utf-8"))}
     for r in done.values(): r["batch"] = r.get("batch") or "1"
+    if only_website:
+        done.pop(rows[0]["Website"], None)
     USED.update(r.get("theme") for r in done.values() if r.get("theme") in artdir.DIRS)
     n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch = []; used = {r.get("site_path") for r in done.values()}
     for r in [x for x in rows if x.get("Website") and x["Website"] not in done][:int(os.getenv("MAX_PER_RUN", "30"))]:
@@ -421,9 +163,11 @@ def main(src):
         while f"/{s}/" in used: s = f"{b0}-{k}"; k += 1
         used.add(f"/{s}/")
         try:
+            if only_website:
+                shutil.rmtree(f"{OUT}/{s}", ignore_errors=True)
             d, info, msrc, own, qa, html = process(r, f"{OUT}/{s}"); perf, seo, iss, fix = audit(r["Website"], get(r["Website"]).text)
             res.update({"fetch_status": "ok", "template": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
-                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "city": d.get("city", ""), "hours_found": bool(d["hours"]), "menu_item_count": len(d["menu"]), "menu_url_found": bool(d["menu_url"]), "order_url_found": bool(d["order_url"]), "classification_confidence": d["classification"].get("confidence", ""), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "template_id": info.get("template_id", ""), "template_status": info.get("template_status", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
+                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "template_id": info.get("template_id", ""), "template_status": info.get("template_status", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
         res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[r["Website"]] = res; batch.append(res); print(name, res["fetch_status"], res.get("qa_flag")); time.sleep(2)
     allr = list(done.values()); cols = list(dict.fromkeys(c for r in allr for c in r)); d = os.path.dirname(RES) or "."; os.makedirs(d, exist_ok=True)
