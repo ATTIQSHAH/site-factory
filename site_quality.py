@@ -16,7 +16,7 @@ def _external_menu_path(soup):
         if path:
             if re.search(r"menu|order|reservation|booking", path + " " + parsed.query, re.I):
                 return True
-        elif re.search(r"order online|online ordering|reserve|book a table", label, re.I):
+        elif re.search(r"order online|online ordering|reserve|book a table|full menu|view menu", label, re.I):
             return True
     return False
 
