@@ -62,7 +62,7 @@ def main():
                   const hero=document.querySelector('.hero');
                   const bar=document.querySelector('.m');
                   const heroLead=document.querySelector('.hero-lead, .hero p, .bento-hero-left p');
-                  const overlap=!!(bar && hero && getComputedStyle(bar).position==='fixed' &&
+                  const overlap=!!(bar && hero && getComputedStyle(bar).display!=='none' && getComputedStyle(bar).position==='fixed' &&
                     rect(hero).y < window.innerHeight && rect(hero).y+rect(hero).h > (window.innerHeight-rect(bar).h));
                   const sources=[...document.images].map(i=>i.currentSrc||i.src).filter(Boolean);
                   const duplicates=sources.filter((src,i)=>sources.indexOf(src)!==i);
