@@ -203,7 +203,7 @@ def build3(d):
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
            "MENU_INTRO": E("Featured items from the published menu.") if d.get("menu") else E("Explore the full menu and current ordering options."),
-           "MAP_FRAME": ('<div class="map-frame location-map"><iframe src="https://www.google.com/maps?q=' + up.quote_plus(d["address"]) + '&amp;output=embed" loading="lazy" title="Map to ' + E(d["name"]) + '" referrerpolicy="no-referrer-when-downgrade"></iframe></div>') if d.get("address") else ""}
+           "MAP_FRAME": ('<div class="map-frame location-map"><div class="map-info"><span class="section-tag">Location preview</span><p class="map-city">' + E(d["city"] or "Business location") + '</p><p class="map-address">' + E(d["address"]) + '</p><a class="map-open" href="' + E(dirn) + '" target="_blank" rel="noopener">Open in Google Maps</a></div></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
     # Optional template-specific fields absent from the selected design are omitted.
@@ -295,9 +295,13 @@ body.hero-type .strip img { width:100%; height:260px; object-fit:cover; border-r
     if d.get("kind") == "bakery":
         bakery_css = """
 /* Bakery-specific art direction: playful colour, stronger hierarchy, less generic centering */
-.location-map { padding:0; min-height:350px; background:var(--bg2); }
-.location-map::before, .location-map::after, .location-map .map-info { display:none; }
-.location-map iframe { display:block; width:100%; height:100%; min-height:350px; border:0; }
+.location-map { position:relative; overflow:hidden; min-height:310px; border:1px solid var(--line); border-radius:22px; background-color:#e7eee8; background-image:repeating-linear-gradient(28deg,transparent 0 42px,rgba(255,255,255,.8) 43px 52px,transparent 53px 96px),repeating-linear-gradient(118deg,transparent 0 62px,rgba(255,255,255,.7) 63px 72px,transparent 73px 126px); }
+.location-map::before { content:""; position:absolute; width:150px; height:150px; border:2px solid rgba(0,111,120,.24); border-radius:50%; left:50%; top:38%; transform:translate(-50%,-50%); }
+.location-map::after { content:""; position:absolute; width:18px; height:18px; border-radius:50% 50% 50% 0; background:var(--acc); left:50%; top:38%; transform:translate(-50%,-50%) rotate(-45deg); box-shadow:0 0 0 8px rgba(0,111,120,.14); }
+.location-map .map-info { display:block; position:absolute; z-index:2; left:1rem; right:1rem; bottom:1rem; padding:1.1rem 1.25rem; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:0 10px 28px rgba(43,23,32,.10); }
+.location-map .map-city { font:700 1.35rem var(--disp); margin:.25rem 0; color:var(--ink); }
+.location-map .map-address { color:var(--mut); font-size:.9rem; margin:0 0 .6rem; }
+.location-map .map-open { display:inline-flex; font-weight:700; color:var(--acc); text-decoration:underline; text-underline-offset:3px; }
 
 .bento-hero-left .btn-main { background:var(--acc); color:var(--accink); border-color:var(--acc); }
 .bento-hero-left .btn-alt { background:#fff; color:var(--ink); border:1px solid var(--acc); }
@@ -332,8 +336,8 @@ a:focus-visible { outline:3px solid var(--acc); outline-offset:4px; border-radiu
   .nav-brand { flex:1 1 150px; }
   .nav-brand img { max-width:145px; max-height:56px; }
   .menu-preview { border-width:2px; }
-  .strip { display:flex; gap:.85rem; overflow-x:auto; scroll-snap-type:x mandatory; padding:0 1rem 1rem; }
-  .strip img { flex:0 0 82vw; width:82vw; max-width:82vw; height:250px; object-fit:cover; border-radius:20px; scroll-snap-align:start; }
+  body.hero-type .strip { display:flex; gap:.85rem; overflow-x:auto; scroll-snap-type:x mandatory; padding:0 1rem 1rem; max-width:100%; grid-template-columns:none; }
+  body.hero-type .strip img { flex:0 0 82vw; width:82vw; max-width:82vw; height:250px; object-fit:cover; border-radius:20px; scroll-snap-align:start; }
   .gallery-showcase { display:flex; gap:.85rem; overflow-x:auto; scroll-snap-type:x mandatory; padding:0 0 .75rem; }
   .gallery-item { flex:0 0 82vw; width:82vw; aspect-ratio:5/4; scroll-snap-align:start; }
   .bento-hero-left > div:last-child { display:grid !important; grid-template-columns:1fr 1fr; gap:.75rem !important; }
