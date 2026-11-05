@@ -133,7 +133,7 @@ def build3(d):
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", ig), ("Facebook", fb)] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
-        story = '<p>' + E(ab) + '</p>' if ab else ""
+        story = '<p>' + E(rest or ab) + '</p>' if ab else ""
         if d.get("menu"):
             parts = ['<div class="menu-layout">']
             current_section = None
