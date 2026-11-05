@@ -77,8 +77,8 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if hero_images.intersection(story_images):
         fail(10, "hero image repeated in about/story section", True)
 
-    has_menu = bool(soup.find(id="menu")) or any(
-        re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True), re.I)
+    has_menu = bool(cards) or any(
+        re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I)
         for a in soup.find_all("a")
     )
     if not has_menu:
