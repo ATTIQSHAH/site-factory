@@ -2,7 +2,7 @@ import json, os, re, requests
 from bs4 import BeautifulSoup
 
 PSI, GEM = os.getenv("PAGESPEED_KEY", ""), os.getenv("GEMINI_API_KEY", "")
-GEM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")  # verify current free-tier model name
+GEM_MODEL = os.getenv("GEMINI_MODEL") or os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current free-tier model name
 UA = {"User-Agent": "Mozilla/5.0 (compatible; SolvexaDemoBot/1.0)"}
 def get(u):
     r = requests.get(u, headers=UA, timeout=20); r.raise_for_status(); return r
