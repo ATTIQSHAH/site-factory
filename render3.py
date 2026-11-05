@@ -73,7 +73,8 @@ def build3(d):
     rest = rest if len(rest) >= 40 else ""
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
-    secs = [("story", "About")] if show_story else []
+    about_anchor = "story" if template_file == "premium.html" else "about"
+    secs = [(about_anchor, "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
     lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
@@ -124,11 +125,14 @@ def build3(d):
             '<div class="gallery-item"><img src="' + E(photo) + '" alt="' + E(d["name"]) + '"></div>'
             for photo in (ph[4:6] if hero == "type" else ph[2:6])
         ) + '</div>' if len(ph) >= 4 else ""
-        visit = ('<table class="hours-list"><tbody>' + "".join(
-            '<tr><td>' + E(day) + '</td><td>' + E(hours) + '</td></tr>' for day, hours in d["hours"]
-        ) + '</tbody></table>') if d["hours"] else (
-            '<p>' + E(d["address"]) + '</p>' if d.get("address") else ""
-        )
+        visit_parts = []
+        if d["hours"]:
+            visit_parts.append('<table class="hours-list"><tbody>' + "".join(
+                '<tr><td>' + E(day) + '</td><td>' + E(hours) + '</td></tr>' for day, hours in d["hours"]
+            ) + '</tbody></table>')
+        if d.get("address"):
+            visit_parts.append('<p class="visit-address">' + E(d["address"]) + '</p>')
+        visit = "".join(visit_parts)
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
@@ -159,6 +163,32 @@ def build3(d):
         t = t.replace("</title>", '</title><meta name="description" content="' + description + '">', 1)
     if 'name="robots"' not in t.lower() and "name='robots'" not in t.lower():
         t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>', 1)
+    responsive_css = """
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+*, *::before, *::after { min-width: 0; }
+img, video, iframe, table { max-width: 100%; }
+body { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .hero { width: 100%; max-width: 100%; grid-template-columns: minmax(0, 1fr); padding: 4.5rem 1rem 2rem; gap: 1rem; }
+  .hero > *, .bento-hero-left, .bento-hero-right { width: 100%; max-width: 100%; min-width: 0; }
+  .bento-hero-left { padding: 1.5rem; }
+  .nav-container { width: 100%; max-width: 100%; min-width: 0; flex-wrap: wrap; padding: .8rem 1rem; gap: .5rem; }
+  .nav-brand { min-width: 0; max-width: 100%; flex: 1 1 180px; gap: .4rem; }
+  .nav-brand img { max-width: 110px; max-height: 50px; width: auto; height: auto; }
+  .nav-cta { font-size: .78rem; padding: .5rem .7rem; white-space: nowrap; }
+  section { width: 100%; max-width: 100%; padding-left: 1rem; padding-right: 1rem; }
+  .story-card-grid, .visit-hub { width: 100%; max-width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); padding: 1.25rem; gap: 1.5rem; }
+  .story-card-grid > *, .visit-hub > *, .section-header { min-width: 0; max-width: 100%; }
+  .menu-layout, .gallery-showcase { grid-template-columns: minmax(0, 1fr); }
+  .strip { width: 100%; max-width: 100%; grid-template-columns: minmax(0, 1fr); padding-left: 1rem; padding-right: 1rem; }
+  .map-frame { width: 100%; max-width: 100%; min-width: 0; }
+}
+@media (max-width: 768px) {
+  body .m { display: none !important; }
+  body.has-scrolled .m { display: flex !important; left: 0; right: 0; bottom: 0; }
+}
+"""
+    t = t.replace("</style>", responsive_css + "</style>", 1)
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
     t = re.sub(r'<p([^>]*)>\s*</p>', '', t, flags=re.I)
     if template_file != "premium.html":
@@ -180,5 +210,6 @@ def build3(d):
         if not ph:
             t = re.sub(r'<div class="bento-img-frame">[\s\S]*?</div>', '', t, count=1)
         t = re.sub(r'<img([^>]+)src=""([^>]*)>', '', t, flags=re.I)
+    t = t.replace("</body>", '<script>(function(){var update=function(){document.body.classList.toggle("has-scrolled",window.scrollY>180);};window.addEventListener("scroll",update,{passive:true});update();})();</script></body>', 1)
     return t, {"theme": th, "hero": hero, "template_file": template_file,
                "template_id": template_meta.get("id", ""), "template_status": "selected"}

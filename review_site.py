@@ -67,8 +67,11 @@ def main():
                     rect(hero).y < window.innerHeight && rect(hero).y+rect(hero).h > (window.innerHeight-rect(bar).h));
                   const sources=[...document.images].map(i=>i.currentSrc||i.src).filter(Boolean);
                   const duplicates=sources.filter((src,i)=>sources.indexOf(src)!==i);
+                  const overflowElements=[...document.querySelectorAll('body *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName, id:el.id, className:typeof el.className==='string'?el.className:'', left:Math.round(r.left), right:Math.round(r.right), width:Math.round(r.width)};}).filter(x=>x.right>window.innerWidth+2||x.left < -2).sort((a,b)=>b.right-a.right).slice(0,8);
                   return {
                     horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth+2,
+                    document_width: document.documentElement.scrollWidth,
+                    overflow_elements: overflowElements,
                     broken_images: [...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.currentSrc||i.src),
                     menu_card_count: cards.length,
                     menu_columns: columns,

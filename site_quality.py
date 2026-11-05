@@ -5,6 +5,7 @@ filled with guesses: absent menu/hours data is reported and must be resolved
 through a real source or an explicit manual review.
 """
 import re
+from urllib.parse import urlsplit
 from collections import Counter
 from bs4 import BeautifulSoup
 
@@ -19,8 +20,15 @@ def _norm(value):
 def _external_menu_path(soup):
     for anchor in soup.find_all("a", href=True):
         href = anchor["href"].strip()
-        label = anchor.get_text(" ", strip=True) + " " + href
-        if MENU_TERMS.search(label) and href.lower().startswith(("https://", "http://")):
+        if not href.lower().startswith(("https://", "http://")):
+            continue
+        label = anchor.get_text(" ", strip=True)
+        parsed = urlsplit(href)
+        # Ignore same-page anchors disguised as absolute URLs; a labelled external
+        # ordering/reservation provider remains a valid conversion path.
+        if parsed.fragment and parsed.path in ("", "/") and not re.search(r"order|reservation|book", label, re.I):
+            continue
+        if MENU_TERMS.search(label + " " + parsed.path):
             return True
     return False
 

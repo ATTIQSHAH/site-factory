@@ -39,36 +39,57 @@ def gem(parts, system=None, js=False):
     body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
-    response = None
-    for attempt in range(3):
-        try:
-            response = requests.post(endpoint, json=body, timeout=240)
-        except requests.RequestException as exc:
-            if attempt == 2:
-                raise RuntimeError("Gemini request failed after retries: " + str(exc)[:240]) from exc
-            time.sleep(2 ** (attempt + 1))
-            continue
-        if response.status_code == 429:
+
+    fallback = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
+    models = [MODEL] + ([fallback] if fallback and fallback != MODEL else [])
+    payload = None
+    last_error = "Gemini request did not return a response"
+
+    for model in models:
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={KEY}"
+        for attempt in range(3):
             try:
-                error = response.json().get("error", {})
-                message = str(error.get("message", ""))
-                reason = str(error.get("status", ""))
-            except ValueError:
-                message, reason = response.text[:300], ""
-            if "quota" in message.lower() or "quota" in reason.lower() or "limit: 0" in message.lower():
-                raise RuntimeError("Gemini HTTP 429 quota exhausted; visual/AI design review requires a valid quota or API key. " + message[:220])
-            if attempt == 2:
-                raise RuntimeError("Gemini rate limit persisted after bounded retries: " + message[:220])
-            time.sleep(2 ** (attempt + 1))
-            continue
-        if response.status_code >= 500 and attempt < 2:
-            time.sleep(2 ** (attempt + 1))
-            continue
-        if response.status_code >= 400:
-            raise RuntimeError("Gemini API HTTP " + str(response.status_code) + ": " + response.text[:300])
-        break
-    payload = response.json()
+                response = requests.post(endpoint, json=body, timeout=240)
+            except requests.RequestException as exc:
+                last_error = "network error: " + str(exc)[:220]
+                if attempt < 2:
+                    time.sleep(2 ** (attempt + 1))
+                    continue
+                break
+
+            if response.status_code == 429:
+                try:
+                    error = response.json().get("error", {})
+                    message = str(error.get("message", ""))
+                    reason = str(error.get("status", ""))
+                except ValueError:
+                    message, reason = response.text[:300], ""
+                if "quota" in message.lower() or "quota" in reason.lower() or "limit: 0" in message.lower():
+                    raise RuntimeError("Gemini HTTP 429 quota exhausted; visual/AI design review requires a valid quota or API key. " + message[:220])
+                last_error = "Gemini HTTP 429 rate limit: " + message[:220]
+                if attempt < 2:
+                    time.sleep(2 ** (attempt + 1))
+                    continue
+                break
+
+            if response.status_code >= 500:
+                last_error = "Gemini HTTP " + str(response.status_code) + ": " + response.text[:220]
+                if attempt < 2:
+                    time.sleep(2 ** (attempt + 1))
+                    continue
+                break
+
+            if response.status_code >= 400:
+                raise RuntimeError("Gemini API HTTP " + str(response.status_code) + ": " + response.text[:300])
+
+            payload = response.json()
+            break
+
+        if payload is not None:
+            break
+
+    if payload is None:
+        raise RuntimeError("Gemini unavailable after bounded retries and fallback: " + last_error)
     if payload.get("error"):
         raise RuntimeError("Gemini API error: " + str(payload["error"])[:300])
     try:
@@ -77,6 +98,8 @@ def gem(parts, system=None, js=False):
         raise RuntimeError("Gemini returned no usable candidate: " + str(payload)[:300]) from exc
     time.sleep(2)
     return json.loads(text) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", text.strip())
+
+
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
