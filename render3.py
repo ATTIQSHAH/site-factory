@@ -203,7 +203,7 @@ def build3(d):
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
            "MENU_INTRO": E("Featured items from the published menu.") if d.get("menu") else E("Explore the full menu and current ordering options."),
-           "MAP_FRAME": ('<div class="map-frame location-map"><div class="map-info"><span class="section-tag">Find us</span><p class="map-city">' + E(d["city"] or "Local bakery") + '</p><p class="map-address">' + E(d["address"]) + '</p></div></div>') if d.get("address") else ""}
+           "MAP_FRAME": ('<div class="map-frame location-map"><iframe src="https://www.google.com/maps?q=' + up.quote_plus(d["address"]) + '&amp;output=embed" loading="lazy" title="Map to ' + E(d["name"]) + '" referrerpolicy="no-referrer-when-downgrade"></iframe></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
     # Optional template-specific fields absent from the selected design are omitted.
@@ -295,6 +295,10 @@ body.hero-type .strip img { width:100%; height:260px; object-fit:cover; border-r
     if d.get("kind") == "bakery":
         bakery_css = """
 /* Bakery-specific art direction: playful colour, stronger hierarchy, less generic centering */
+.location-map { padding:0; min-height:350px; background:var(--bg2); }
+.location-map::before, .location-map::after, .location-map .map-info { display:none; }
+.location-map iframe { display:block; width:100%; height:100%; min-height:350px; border:0; }
+
 .bento-hero-left .btn-main { background:var(--acc); color:var(--accink); border-color:var(--acc); }
 .bento-hero-left .btn-alt { background:#fff; color:var(--ink); border:1px solid var(--acc); }
 .section-intro, .menu-preview p { color:var(--ink); font-size:1.08rem; line-height:1.7; }
