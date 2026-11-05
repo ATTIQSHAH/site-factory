@@ -1,6 +1,7 @@
 name: nightly-site-factory
 on:
-  schedule: [{cron: "0 21 * * *"}]
+  # Automatic batches are paused until the single-demo quality gate passes.
+  # Keep manual dispatch available for controlled testing only.
   workflow_dispatch:
     inputs:
       max: {description: "Max new leads this run", default: "15"}
