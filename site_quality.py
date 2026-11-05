@@ -38,7 +38,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if "{{" in (document or "") or "lorem ipsum" in visible or "undefined" in visible:
         fail(25, "unresolved placeholder or generated filler detected", True)
     if any(not n.get_text(" ", strip=True) for n in soup.select(".hero p, .hero-lead, .bento-hero-left p")):
-        fail(18, "hero has an empty lead paragraph", True)
+        fail(18, "hero has an empty description or lead paragraph", True)
 
     for label in soup.select(".chip, .eyebrow, .pillar-badge"):
         fragments = re.split(r"[·|,]", label.get_text(" ", strip=True))
