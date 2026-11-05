@@ -324,6 +324,15 @@ def about_from_soup(soup):
     return ""
 
 
+def suppress_ambiguous_menu_prices(items):
+    prices = [str(item.get('price', '')).strip() for item in items if str(item.get('price', '')).strip()]
+    if len(prices) < 3:
+        return items
+    counts = Counter(prices)
+    value, count = counts.most_common(1)[0]
+    return [] if value and count >= 3 and count / len(prices) >= 0.6 else items
+
+
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
@@ -337,6 +346,9 @@ def process(r, folder):
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True)
                   if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     items, menu_url, msrc = get_menu(soup, base, order)
+    if items and not suppress_ambiguous_menu_prices(items):
+        print('Menu prices look ambiguous; keeping the official menu link instead of unverified product cards')
+        items, msrc = [], 'link'
     hours = hours_of(biz, text)
     if not hours or not items or not addr:
         rendered = rendered_store_html(base)
