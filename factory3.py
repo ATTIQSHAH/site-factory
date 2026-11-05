@@ -70,7 +70,7 @@ def product_items_from_html(document):
     return unique[:40]
 
 
-def menu_text(h):
+def menu_text(h, min_items=1):
     soup = BeautifulSoup(h, "html.parser")
     for node in soup(["script", "style", "nav", "footer", "header"]): node.decompose()
     items, section, seen, pending = [], "", set(), None
@@ -111,7 +111,7 @@ def menu_text(h):
             items[-1]["desc"] = line
     if pending and pending.casefold() not in seen:
         items.append({"section": section, "name": pending, "price": "", "desc": ""})
-    return items[:24] if len(items) >= 5 else []
+    return items[:24] if len(items) >= min_items else []
 
 
 def get_menu(soup, base):
@@ -130,7 +130,7 @@ def get_menu(soup, base):
             if structured:
                 items, source = structured, "structured"
             else:
-                items = menu_text(response.text)
+                items = menu_text(response.text, min_items=5)
                 source = "text" if items else "link"
             pages.append(BeautifulSoup(response.text, "html.parser"))
         except Exception:
@@ -172,7 +172,9 @@ def hours_of(biz, text):
         pattern = re.compile(rf"({day})(?:\s*(?:-|–|to|through)\s*({day}))?\s*[:,-]?\s*{clock}\s*(?:-|–|to)\s*{clock}", re.I)
         rows = []
         for match in pattern.finditer(source or ""):
-            first, last = match.group(1).title(), (match.group(2) or "").title()
+            day_names = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}
+            first_raw, last_raw = match.group(1).title(), (match.group(2) or "").title()
+            first, last = day_names.get(first_raw, first_raw), day_names.get(last_raw, last_raw)
             label = f"{first} to {last}" if last else first
             rows.append((label, f"{fmt(match.group(3))} to {fmt(match.group(4))}"))
         return list(dict.fromkeys(rows))
