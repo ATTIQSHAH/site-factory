@@ -295,6 +295,17 @@ body.hero-type .strip img { width:100%; height:260px; object-fit:cover; border-r
     if d.get("kind") == "bakery":
         bakery_css = """
 /* Bakery-specific art direction: playful colour, stronger hierarchy, less generic centering */
+.bento-hero-left .btn-main { background:var(--acc); color:var(--accink); border-color:var(--acc); }
+.bento-hero-left .btn-alt { background:#fff; color:var(--ink); border:1px solid var(--acc); }
+.section-intro, .menu-preview p { color:var(--ink); font-size:1.08rem; line-height:1.7; }
+.story-content { font-size:1.12rem; line-height:1.8; }
+.visit-hub { padding:clamp(2rem,4vw,3rem); }
+.hours-list td { font-size:1rem; }
+.gallery-showcase { grid-template-columns:1.2fr .8fr; align-items:center; }
+.gallery-item:nth-child(2) { margin-top:2.5rem; aspect-ratio:1/1; }
+a:focus-visible { outline:3px solid var(--acc); outline-offset:4px; border-radius:6px; }
+.pillar-badge span::before { content:""; display:inline-block; width:8px; height:8px; margin-right:.55rem; border-radius:50%; background:#e65b82; }
+
 .hero .bento-hero-left { background:var(--bg2); border:0; border-left:6px solid var(--acc); border-radius:24px; padding:clamp(2rem,4vw,3.5rem); }
 .bento-quote-frame { background:var(--acc); border:0; border-radius:22px; color:var(--accink); }
 .bento-quote-frame * { color:var(--accink) !important; }
@@ -326,6 +337,10 @@ body.hero-type .strip img { width:100%; height:260px; object-fit:cover; border-r
   .story-photo-frame { aspect-ratio:5/4; }
   .visit-hub { gap:1.25rem; }
   .map-frame, .location-map { min-height:260px; }
+  section { padding-top:3.25rem; padding-bottom:3.25rem; }
+  .section-header { margin-bottom:2rem; }
+  .section-intro, .story-content, .menu-preview p { font-size:1.05rem; line-height:1.7; color:var(--ink); }
+  .visit-hub { padding:1.5rem; }
 }
 """
         t = t.replace("</style>", bakery_css + "</style>", 1)
