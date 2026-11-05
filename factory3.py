@@ -129,11 +129,17 @@ def select_test_rows(rows, target=None, limit=30):
 
 def get_menu(soup, base):
     link = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"menu", a["href"] + a.get_text(), re.I) and not a["href"].lower().endswith(".pdf") and "order" not in a.get_text().lower()), None)
-    pages, items, src = [soup], [], "none"
-    if link:
-        try: r = get(link); items = menu_text(r.text); pages.append(BeautifulSoup(r.text, "html.parser"))
-        except Exception: pass
-        src = "text" if items else "link"
+    pages = [soup]
+    items = product_items_from_html(str(soup))
+    src = "structured" if items else "none"
+    if link and not items:
+        try:
+            response = get(link)
+            items = product_items_from_html(response.text) or menu_text(response.text)
+            pages.append(BeautifulSoup(response.text, "html.parser"))
+        except Exception:
+            pass
+        src = "structured" if items and product_items_from_html(response.text) else ("text" if items else "link")
     if not items:
         pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for p in pages for a in p.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
         imgs = list(dict.fromkeys(urljoin(base, i.get("src")) for p in pages for i in p.find_all("img") if i.get("src") and re.search(r"menu", i["src"] + (i.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", i["src"], re.I)))
