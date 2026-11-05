@@ -170,7 +170,7 @@ def build3(d):
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
            "MENU_INTRO": E("Featured items from the published menu.") if d.get("menu") else E("Explore the full menu and current ordering options."),
-           "MAP_FRAME": ('<div class="map-frame" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:linear-gradient(135deg,var(--bg2),var(--bg))"><div><span class="section-tag">Find us</span><p style="font-family:var(--disp);font-size:1.7rem;margin:.7rem 0">' + E(d["city"] or d["address"]) + '</p><p style="color:var(--mut);font-size:.9rem">Use the directions link to open Maps.</p></div></div>') if d.get("address") else ""}
+           "MAP_FRAME": ('<div class="map-frame location-map"><div class="map-info"><span class="section-tag">Find us</span><p class="map-city">' + E(d["city"] or "Local bakery") + '</p><p class="map-address">' + E(d["address"]) + '</p></div></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
     # Optional template-specific fields absent from the selected design are omitted.
@@ -203,7 +203,15 @@ body { overflow-wrap: anywhere; }
 #about .story-card-grid, #story .story-card-grid { background: var(--bg); }
 section { border-top: 1px solid var(--line); }
 .section-title { font-size: clamp(2rem, 3.5vw, 2.9rem); font-weight: 500; letter-spacing: -.025em; }
-.btn-main, .nav-cta { font-weight: 700; box-shadow: 0 5px 14px rgba(40, 24, 12, .10); }
+.btn-main, .nav-cta { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; box-shadow: 0 5px 14px rgba(40, 24, 12, .16); }
+.btn-main:hover, .nav-cta:hover { background: var(--acc); color: var(--accink); border-color: var(--acc); }
+.section-tag { font-size: .8rem; letter-spacing: .18em; margin-bottom: .9rem; }
+.location-map { position:relative; overflow:hidden; min-height:350px; border:1px solid var(--line); background-color:var(--bg2); background-image:repeating-linear-gradient(28deg,transparent 0 46px,rgba(255,255,255,.55) 47px 58px,transparent 59px 104px),repeating-linear-gradient(118deg,transparent 0 68px,rgba(255,255,255,.45) 69px 80px,transparent 81px 136px); }
+.location-map::before { content:""; position:absolute; width:170px; height:170px; border:2px solid rgba(130,145,110,.28); border-radius:50%; left:50%; top:38%; transform:translate(-50%,-50%); }
+.location-map::after { content:""; position:absolute; width:18px; height:18px; border-radius:50% 50% 50% 0; background:var(--acc); left:50%; top:38%; transform:translate(-50%,-50%) rotate(-45deg); box-shadow:0 0 0 8px rgba(150,100,55,.16); }
+.location-map .map-info { position:absolute; z-index:2; left:1rem; right:1rem; bottom:1rem; padding:1.1rem 1.25rem; border:1px solid var(--line); border-radius:var(--rad); background:var(--bg); }
+.location-map .map-city { font:700 1.4rem var(--disp); margin:.3rem 0; }
+.location-map .map-address { color:var(--mut); font-size:.85rem; margin:0; }
 .nav-brand img + span { display: none; }
 .menu-preview { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.5rem 1.75rem; margin-top:1.5rem; border:1px solid var(--line); border-radius:var(--rad); background:var(--bg2); }
 .menu-preview p { margin:.4rem 0 0; color:var(--mut); max-width:540px; }
@@ -233,6 +241,7 @@ section { border-top: 1px solid var(--line); }
 @media (min-width: 901px) {
   section { padding-top: 4.5rem; padding-bottom: 4.5rem; }
   #menu { padding-top: 3.75rem; padding-bottom: 3.75rem; }
+  .hero-title { font-size: clamp(3.3rem, 5.7vw, 4.9rem); }
   .story-card-grid { padding: 2.5rem; gap: 2.5rem; align-items: center; }
   .story-content { max-width: 520px; font-size: 1.02rem; }
   .story-photo-frame { width: 100%; max-width: 520px; margin-left: auto; }
