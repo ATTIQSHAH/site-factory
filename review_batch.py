@@ -40,6 +40,8 @@ def main():
             "--phone", row.get("Phone", ""),
             "--source-website", row.get("Website", ""),
         ]
+        if str(row.get("hours_found", "")).strip().lower() in {"true", "1", "yes"}:
+            command.append("--require-hours")
         print(f'Reviewing {row.get("Name")} ({row.get("Website")})', flush=True)
         result = subprocess.run(command, check=False)
         if result.returncode:
