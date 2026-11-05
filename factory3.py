@@ -313,7 +313,7 @@ def process(r, folder):
     name = r.get("Name") or ((soup.title.get_text(" ", strip=True) if soup.title else "") .split("|")[0].strip() or u)
     page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
+    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else about_from_soup(soup)
     addr, city = address_of(biz, text, soup)
     city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
     if sum(ch.isalpha() for ch in city) < 3: city = ""
@@ -336,8 +336,7 @@ def process(r, folder):
                     items, menu_url, msrc = browser_items, browser_menu_url or menu_url, browser_source
             if not about:
                 rendered_meta = (rendered_soup.find("meta", attrs={"property": "og:description"}) or rendered_soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-                if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I):
-                    about = rendered_meta
+                about = rendered_meta if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I) else about_from_soup(rendered_soup)
     city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
     if sum(ch.isalpha() for ch in city) < 3: city = ""
     headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
@@ -361,7 +360,7 @@ def process(r, folder):
     if stock_ph:
         print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours, "about": ai_about(name, about) if about else "", "logo": logo,
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours, "about": about, "logo": logo,
          "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram") or socials.get("instagram", ""), "fb": r.get("Facebook") or socials.get("facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
