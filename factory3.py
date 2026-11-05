@@ -362,7 +362,11 @@ def process(r, folder):
             if not items:
                 browser_items, browser_menu_url, browser_source = get_menu(rendered_soup, base, order)
                 if browser_items:
-                    items, menu_url, msrc = browser_items, browser_menu_url or menu_url, browser_source
+                    safe_browser_items = suppress_ambiguous_menu_prices(browser_items)
+                    if safe_browser_items:
+                        items, menu_url, msrc = safe_browser_items, browser_menu_url or menu_url, browser_source
+                    else:
+                        menu_url, msrc = browser_menu_url or menu_url, "link"
             if not about:
                 rendered_meta = (rendered_soup.find("meta", attrs={"property": "og:description"}) or rendered_soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
                 about = rendered_meta if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I) else about_from_soup(rendered_soup)
