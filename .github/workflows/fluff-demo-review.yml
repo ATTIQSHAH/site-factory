@@ -49,6 +49,9 @@ jobs:
 
       - name: Capture mobile and desktop screenshots and run quality checks
         run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_DESIGN_MODEL: gemini-3.8-flash
 
       - name: Upload generated demo and review evidence
         if: always()
