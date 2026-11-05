@@ -96,7 +96,7 @@ def menu_text(h):
                     items.append({"section": section, "name": name, "price": price, "desc": ""})
                     seen.add(name.casefold())
             continue
-        if len(line) <= 12 and not re.search(r"\d|@|http", line):
+        if (len(line.split()) == 1 or re.fullmatch(r"(cookies|pastries|cakes|desserts|drinks|beverages|breakfast|lunch|dinner|specials|sides|appetizers|entrees|mains|sandwiches|coffee|tea|ice cream)", line, re.I)) and not re.search(r"\d|@|http", line):
             if pending and pending.casefold() not in seen:
                 items.append({"section": section, "name": pending, "price": "", "desc": ""})
                 seen.add(pending.casefold())
@@ -166,7 +166,7 @@ def hours_of(biz, text):
         hour, minute, suffix = int(match.group(1)), int(match.group(2) or 0), match.group(3)
         if suffix:
             meridiem = "AM" if suffix in ("a", "am") else "PM"
-            return f"{hour if minute == 0 else hour}:{minute:02d} {meridiem}"
+            return f"{hour} {meridiem}" if minute == 0 else f"{hour}:{minute:02d} {meridiem}"
         return f"{hour % 12 or 12}{':' + match.group(2) if minute else ''} {'AM' if hour < 12 else 'PM'}"
     def parse(source):
         pattern = re.compile(rf"({day})(?:\s*(?:-|–|to|through)\s*({day}))?\s*[:,-]?\s*{clock}\s*(?:-|–|to)\s*{clock}", re.I)
@@ -179,6 +179,9 @@ def hours_of(biz, text):
     visible = parse(text)
     if visible:
         ranges = [row for row in visible if " to " in row[0]]
+        if ranges:
+            full_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+            ranges.extend(row for row in visible if row[0] in full_days and row not in ranges)
         return (ranges or visible)[:7]
     schema = biz.get("openingHours") or []
     schema = [schema] if isinstance(schema, str) else schema
@@ -187,6 +190,9 @@ def hours_of(biz, text):
         parsed.extend(parse(str(entry)))
     if parsed:
         ranges = [row for row in parsed if " to " in row[0]]
+        if ranges:
+            full_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+            ranges.extend(row for row in parsed if row[0] in full_days and row not in ranges)
         return (ranges or parsed)[:7]
     return []
 
