@@ -54,7 +54,7 @@ jobs:
           SITES_DIR: sites
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
-          AI_DESIGN: ${{ vars.AI_DESIGN }}
+          AI_DESIGN: "0"
           BASE_URL: ""
 
       - name: Capture mobile and desktop screenshots and run quality checks
