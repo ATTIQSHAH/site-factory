@@ -6,7 +6,7 @@ BASE = """<!doctype html><html><head><title>Fluff Bake Bar</title>
 <meta name="description" content="A bakery serving pastries, cakes and cookies made fresh every day.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow"></head><body>
-<header><h1>Fluff Bake Bar</h1><a href="#menu">Menu</a><a href="tel:+17135221900">Call</a></header>
+<header><h1>Fluff Bake Bar</h1><a href="https://example.com/menu">Menu</a><a href="tel:+17135221900">Call</a></header>
 <main id="menu"><p>{}</p></main></body></html>"""
 
 

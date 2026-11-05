@@ -307,19 +307,48 @@ def photos_of(soup, base, folder):
     ppl = [x for x in good if x[0] == "people"]; good = [x[1] for x in good if x[0] != "people"] + [x[1] for x in ppl[:1]]; out = []
     for n, im in enumerate(good[:8]): media.save(im, f"{folder}/img/p{n}.jpg"); out.append(f"img/p{n}.jpg")
     return out
+def about_from_soup(soup):
+    """Extract a source-authored business paragraph without inventing facts."""
+    for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
+        label = heading.get_text(" ", strip=True)
+        if re.search(r"about|our story|who we are|our mission|eat more sweets", label, re.I):
+            paragraph = heading.find_next("p")
+            if paragraph:
+                candidate = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+                if 90 <= len(candidate) <= 700 and not re.search(r"hours|address|phone|email|cookie policy", candidate, re.I):
+                    return candidate
+    for paragraph in soup.find_all("p"):
+        candidate = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+        if 100 <= len(candidate) <= 500 and not re.search(r"hours|address|phone|email|cookie policy|follow us|sign up", candidate, re.I):
+            return candidate
+    return ""
+
+
+def suppress_ambiguous_menu_prices(items):
+    prices = [str(item.get('price', '')).strip() for item in items if str(item.get('price', '')).strip()]
+    if len(prices) < 3:
+        return items
+    counts = Counter(prices)
+    value, count = counts.most_common(1)[0]
+    return [] if value and count >= 3 and count / len(prices) >= 0.6 else items
+
+
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
     biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
     name = r.get("Name") or ((soup.title.get_text(" ", strip=True) if soup.title else "") .split("|")[0].strip() or u)
     page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
+    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else about_from_soup(soup)
     addr, city = address_of(biz, text, soup)
     city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
     if sum(ch.isalpha() for ch in city) < 3: city = ""
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True)
                   if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
     items, menu_url, msrc = get_menu(soup, base, order)
+    if items and not suppress_ambiguous_menu_prices(items):
+        print('Menu prices look ambiguous; keeping the official menu link instead of unverified product cards')
+        items, msrc = [], 'link'
     hours = hours_of(biz, text)
     if not hours or not items or not addr:
         rendered = rendered_store_html(base)
@@ -333,11 +362,14 @@ def process(r, folder):
             if not items:
                 browser_items, browser_menu_url, browser_source = get_menu(rendered_soup, base, order)
                 if browser_items:
-                    items, menu_url, msrc = browser_items, browser_menu_url or menu_url, browser_source
+                    safe_browser_items = suppress_ambiguous_menu_prices(browser_items)
+                    if safe_browser_items:
+                        items, menu_url, msrc = safe_browser_items, browser_menu_url or menu_url, browser_source
+                    else:
+                        menu_url, msrc = browser_menu_url or menu_url, "link"
             if not about:
                 rendered_meta = (rendered_soup.find("meta", attrs={"property": "og:description"}) or rendered_soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-                if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I):
-                    about = rendered_meta
+                about = rendered_meta if len(rendered_meta) >= 60 and not re.search(r"cookie|javascript", rendered_meta, re.I) else about_from_soup(rendered_soup)
     city = "".join(ch for ch in str(city or "") if ch.isalpha() or ch in " .-'’").strip()
     if sum(ch.isalpha() for ch in city) < 3: city = ""
     headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])[:30]]
@@ -361,7 +393,7 @@ def process(r, folder):
     if stock_ph:
         print(f"  stock imagery: {len(stock_ph)} illustrative image(s) selected for {kind}")
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours, "about": ai_about(name, about) if about else "", "logo": logo,
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours, "about": about, "logo": logo,
          "photos": ph, "own_photos": ph[:own], "stock_photos": stock_ph, "has_stock_photos": bool(stock_ph), "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram") or socials.get("instagram", ""), "fb": r.get("Facebook") or socials.get("facebook", ""), "web": u, "kind": kind, "subcategory": classification["subcategory"], "classification_confidence": classification["confidence"], "classification_evidence": classification["evidence"]}
     if os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)

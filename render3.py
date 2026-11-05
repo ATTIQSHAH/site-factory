@@ -76,7 +76,8 @@ def build3(d):
         cards, current_section = [], None
         for item in d["menu"]:
             section_name = item.get("section") or "Menu"
-            if section_name not in {"Shop", "Menu", "View All Items"} and section_name != current_section:
+            same_as_product = section_name.strip().casefold() == str(item.get("name", "")).strip().casefold()
+            if section_name not in {"Shop", "Menu", "View All Items"} and section_name != current_section and not same_as_product:
                 cards.append(f'<h3 class="menu-section-title">{E(section_name)}</h3>')
                 current_section = section_name
             details = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
@@ -92,7 +93,7 @@ def build3(d):
     if len(ph) >= 4:
         gal = '<div class="gallery-showcase">' + "".join(
             f'<figure class="gallery-item"><img src="{E(p)}" alt="{E(d["name"])} photo" loading="lazy"></figure>'
-            for p in ph[:6]
+            for p in ph[2:6]
         ) + "</div>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     hours_table = f'<table class="hours-list"><tbody>{hrs}</tbody></table>' if hrs else ""
@@ -107,8 +108,8 @@ def build3(d):
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "View menu" if has_menu else "Visit", "CHIPS": chips,
            "MAP_FRAME": f'<div class="map-frame map-placeholder"><div><strong>Find us</strong><p>{E(d["address"])}</p><a class="btn-alt" href="{E(dirn)}" target="_blank" rel="noopener">Open in Maps</a></div></div>' if d.get("address") else "",
-           "HERO_NOTE": f'<div class="bento-quote-frame"><div style="font-weight:700;font-size:1.1rem;margin-bottom:.4rem;font-family:var(--disp)">{E(n)}</div><div style="color:var(--mut);font-size:.95rem">{E(short)}</div></div>' if short else "", "MENU_INTRO": "View the published menu." if d.get("menu_url") else "",
-           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" and template_file == "premium.html" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
+           "HERO_NOTE": "", "MENU_INTRO": "View the published menu." if d.get("menu_url") else "",
+           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" and template_file == "premium.html" else "", "STORY": story, "STORY_PHOTO": f'<div class="story-photo-frame"><img src="{E(ph[1])}" alt="{E(d["name"])} bakery"></div>' if len(ph) > 1 else "", "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn, "STOCK_NOTE": '<p class="stock-note">Some imagery is illustrative stock photography.</p>' if d.get("has_stock_photos") else ""}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     if not has_menu:
         t = re.sub(r'<section\b(?=[^>]*\bid=["\']menu["\'])[^>]*>.*?</section>', "", t, flags=re.I | re.S)
@@ -121,7 +122,7 @@ def build3(d):
     t = re.sub(r"<p\b[^>]*>\s*</p>", "", t, flags=re.I)
     if not re.search(r'<meta[^>]+name=["\']robots["\']', t, re.I):
         t = re.sub(r"</head\s*>", '<meta name="robots" content="noindex,nofollow">\n</head>', t, count=1, flags=re.I)
-    safety_css = "<style>html,body{max-width:100%;overflow-x:clip}*,*::before,*::after{min-width:0}img,video,iframe{max-width:100%}.menu-layout,.gallery-showcase{grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr))}.story-content,.visit-hub,.story-card-grid{min-width:0}.facts{display:grid;gap:.7rem;margin-top:1.2rem}.fact{display:flex;gap:.6rem;flex-wrap:wrap}.menu-section-title{grid-column:1/-1;margin-top:1rem}.menu-link{margin-top:1.5rem}</style>"
+    safety_css = "<style>html,body{max-width:100%;overflow-x:clip}*,*::before,*::after{min-width:0}img,video,iframe{max-width:100%}.menu-layout,.gallery-showcase{grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr))}.story-content,.visit-hub,.story-card-grid{min-width:0}.facts{display:grid;gap:.7rem;margin-top:1.2rem}.fact{display:flex;gap:.6rem;flex-wrap:wrap}.menu-section-title{grid-column:1/-1;margin-top:1rem}.menu-link{margin-top:1.5rem}.bento-hero-right{grid-template-rows:auto!important}@media(max-width:768px){.hero{padding:2rem 1rem 1.5rem!important;gap:1rem!important}.bento-hero-left{padding:1.5rem!important}.bento-img-frame{height:230px!important;min-height:230px!important}.bento-hero-right{grid-template-rows:auto!important}.nav-container{padding:.75rem 1rem!important;gap:.5rem}.nav-brand{flex:1;min-width:0;gap:.5rem;white-space:nowrap;font-size:1rem}.nav-brand img{max-width:64px!important;max-height:36px!important}.nav-brand span{white-space:nowrap}.nav-cta{padding:.55rem .7rem;font-size:.75rem;max-width:118px;white-space:normal;text-align:center;line-height:1.2}.m{display:none!important}}</style>"
     t = re.sub(r"</head\s*>", safety_css + "</head>", t, count=1, flags=re.I)
     if not re.search(r"<meta[^>]+name=['\"]description['\"]", t, re.I):
         description = (short or "").strip()
