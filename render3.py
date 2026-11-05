@@ -116,9 +116,9 @@ def build3(d):
         t = t.replace(claim, "")
     description = E((d.get("about") or "").strip()[:155]) or E(
         "Explore contact details, location, menu and visit information for " + d["name"] + ".")
-    if not re.search(r'<meta[^>]+name=["\\']description["\\']', t, re.I):
+    if 'name="description"' not in t.lower() and "name='description'" not in t.lower():
         t = t.replace("</title>", '</title><meta name="description" content="' + description + '">', 1)
-    if not re.search(r'<meta[^>]+name=["\\']robots["\\'][^>]*noindex', t, re.I):
+    if 'name="robots"' not in t.lower() and "name='robots'" not in t.lower():
         t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>', 1)
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
     return t, {"theme": th, "hero": hero, "template_file": template_file,
