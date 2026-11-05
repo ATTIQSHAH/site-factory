@@ -132,9 +132,20 @@ def build3(d):
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
-           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
+           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn,
+           "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
+           "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
+           "MENU_INTRO": E("Published menu details and prices are shown where available."),
+           "MAP_FRAME": ('<div class="map-frame"><iframe src="https://maps.google.com/maps?q=' + q + '&output=embed" loading="lazy" title="Map to ' + n + '"></iframe></div>') if d.get("address") else ""}
     for k, v in rep.items():
         t = t.replace("{{%s}}" % k, v)
+    # Optional template-specific fields absent from the selected design are omitted.
+    while "{{" in t:
+        start = t.find("{{")
+        end = t.find("}}", start)
+        if end < 0:
+            break
+        t = t[:start] + t[end + 2:]
     # Remove template marketing claims that cannot be proven from the business source.
     for claim in ("Michelin Guide 2026 · Tasting Menu", "36-Hour Fermentation · Stone Ground",
                   "Fresh Batch Roasted & Baked Daily", "Walk-ins always welcome.",

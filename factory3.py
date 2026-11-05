@@ -171,7 +171,27 @@ def hours_of(biz, text):
         label = start_day if start_day == end_day else start_day + " to " + end_day
         visible.append((label, start + " to " + end))
     if visible:
-        return list(dict.fromkeys(visible))[:7]
+        ranges = [row for row in visible if " to " in row[0]]
+        if ranges:
+            order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            covered = set()
+            for label, _ in ranges:
+                start_day, end_day = label.split(" to ", 1)
+                if start_day in order and end_day in order:
+                    covered.update(order[order.index(start_day):order.index(end_day) + 1])
+            result = list(ranges)
+            seen_labels = {row[0] for row in result}
+            for row in visible:
+                if row[0] not in covered and row[0] not in seen_labels:
+                    result.append(row)
+                    seen_labels.add(row[0])
+            return result[:7]
+        result, seen_labels = [], set()
+        for row in visible:
+            if row[0] not in seen_labels:
+                result.append(row)
+                seen_labels.add(row[0])
+        return result[:7]
 
     schema = biz.get("openingHours")
     schema = [schema] if isinstance(schema, str) else (schema or [])
@@ -200,8 +220,8 @@ def address_of(biz, text, soup=None):
         return ", ".join(str(part) for part in parts), value.get("addressLocality", "")
     source = soup.get_text(" ", strip=True) if soup is not None else (text or "")
     pattern = re.compile(
-        r"(\\d{1,6}\\s+[A-Za-z0-9 .'-]+?\\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\\b),?\\s*"
-        r"([A-Za-z .'-]+?),\\s*([A-Z]{2})\\s+(\\d{5})(?:-\\d{4})?", re.I
+        r"(\d{1,6}\s+[A-Za-z0-9 .'-]+?\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b),?\s*"
+        r"([A-Za-z .'-]+?),\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?", re.I
     )
     match = pattern.search(source)
     if match:
