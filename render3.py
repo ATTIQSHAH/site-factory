@@ -93,7 +93,7 @@ def build3(d):
     elif d.get("menu_url"):
         bgi = f"style=\"background-image:url('{E(ph[-1])}')\"" if ph else ""; nc = "" if ph else " nophoto"
         menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
-    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[:4]) + "</div></div></section>"
+    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[2:6]) + "</div></div></section>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
     right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
@@ -122,7 +122,7 @@ def build3(d):
             menu = ""
         gal = '<div class="gallery-showcase">' + "".join(
             '<div class="gallery-item"><img src="' + E(photo) + '" alt="' + E(d["name"]) + '"></div>'
-            for photo in ph[2:6]
+            for photo in (ph[4:6] if hero == "type" else ph[2:6])
         ) + '</div>' if len(ph) >= 4 else ""
         visit = ('<table class="hours-list"><tbody>' + "".join(
             '<tr><td>' + E(day) + '</td><td>' + E(hours) + '</td></tr>' for day, hours in d["hours"]
@@ -132,7 +132,7 @@ def build3(d):
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
-           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn,
+           "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[2:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn,
            "HERO_NOTE": '<div class="bento-quote-frame"><strong>Menu & visit details</strong><p>Use the links below to plan your visit.</p></div>',
            "STORY_PHOTO": ('<div class="story-photo-frame"><img src="' + E(ph[1]) + '" alt="' + n + '"></div>') if len(ph) > 1 else "",
            "MENU_INTRO": E("Published menu details and prices are shown where available."),
@@ -161,6 +161,15 @@ def build3(d):
         t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>', 1)
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", t), "Unresolved template token in " + template_file
     t = re.sub(r'<p([^>]*)>\s*</p>', '', t, flags=re.I)
+    if template_file != "premium.html":
+        if not ab:
+            t = re.sub(r'<section[^>]+id="about"[^>]*>[\s\S]*?</section>', '', t, count=1)
+        if not has_menu:
+            t = re.sub(r'<section[^>]+id="menu"[^>]*>[\s\S]*?</section>', '', t, count=1)
+        if not gal:
+            t = re.sub(r'<section[^>]+id="gallery"[^>]*>[\s\S]*?</section>', '', t, count=1)
+        if not d["hours"]:
+            t = t.replace("Service Hours", "Contact & Location")
     t = t.replace("Daily Bake Schedule", "View details").replace("Direct Line", "Call the business")
     t = t.replace("Experience seasonal ingredients and dedicated hospitality curated every morning.", "Explore the menu and visit information below.")
     if template_file != "premium.html":
