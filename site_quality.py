@@ -40,6 +40,12 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if any(not n.get_text(" ", strip=True) for n in soup.select(".hero p, .hero-lead, .bento-hero-left p")):
         fail(18, "hero has an empty lead paragraph", True)
 
+    for label in soup.select(".chip, .eyebrow, .pillar-badge"):
+        fragments = re.split(r"[·|,]", label.get_text(" ", strip=True))
+        if any(len(part.strip()) == 1 and part.strip().isalpha() for part in fragments):
+            fail(12, "suspicious one-character label or location", True)
+            break
+
     cards = soup.select(".menu-card")
     if cards:
         names = []
