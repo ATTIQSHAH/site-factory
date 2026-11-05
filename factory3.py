@@ -180,20 +180,31 @@ def hours_of(biz, text):
         return list(dict.fromkeys(rows))
 
     def merge_ranges(rows):
-        ranges = [row for row in rows if " to " in row[0]]
-        if not ranges:
-            return rows[:7]
         week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        ranges, seen_ranges = [], set()
+        for row in rows:
+            if " to " in row[0] and row[0] not in seen_ranges:
+                ranges.append(row)
+                seen_ranges.add(row[0])
+        if not ranges:
+            unique, seen = [], set()
+            for row in rows:
+                if row[0] not in seen:
+                    unique.append(row)
+                    seen.add(row[0])
+            return unique[:7]
         covered = set()
         for label, _ in ranges:
-            if " to " not in label:
-                continue
             first, last = label.split(" to ", 1)
             if first not in week or last not in week:
                 continue
             start, end = week.index(first), week.index(last)
             covered.update(week[start:end + 1] if start <= end else week[start:] + week[:end + 1])
-        ranges.extend(row for row in rows if row[0] in week and row[0] not in covered)
+        seen_days = set(covered)
+        for row in rows:
+            if row[0] in week and row[0] not in seen_days:
+                ranges.append(row)
+                seen_days.add(row[0])
         return ranges[:7]
 
     visible = parse(text)
