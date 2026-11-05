@@ -157,7 +157,7 @@ def get_menu(soup, base):
 
 def hours_of(biz, text):
     """Prefer source-published weekly ranges; ignore conflicting individual fragments."""
-    day = r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
+    day = r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
     clock = r"(\d{1,2}(?::\d{2})?\s*(?:a|p|am|pm)?)"
     def fmt(value):
         value = re.sub(r"\s+", "", value.lower()).replace(".", "")
@@ -206,7 +206,7 @@ def address_of(biz, text, soup=None):
     if match:
         street = re.sub(r"\s+", " ", match.group("street")).strip()
         city, state, postal = match.group("city"), match.group("state"), match.group("zip")
-        tail = ", ".join(part for part in (city, state, postal) if part)
+        tail = ", ".join(part for part in (city, (state + " " if state else "") + postal) if part)
         return street + (", " + tail if tail else ""), (city or "").strip()
     return "", ""
 
