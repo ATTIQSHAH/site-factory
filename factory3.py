@@ -1,6 +1,6 @@
 """v3: lead CSV -> real extraction (photos, logo, menu incl. AI reading, address, hours) -> themed premium site -> audit -> results CSV."""
 import csv, json, os, re, sys, time
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 import media, artdir, library
 from collections import Counter
@@ -149,6 +149,10 @@ def get_menu(soup, base):
         score = (5 if "menu" in signal else 0) + (4 if re.search(r"shop|store|product", signal) else 0) + (3 if re.search(r"order|online|toast|square|chownow|doordash|ubereats", signal) else 0)
         candidates.append((score, urljoin(base, href)))
     link = max(candidates, default=(0, None), key=lambda item: item[0])[1]
+    if link:
+        parsed_link = urlparse(link)
+        if parsed_link.netloc.lower().endswith("square.site") and parsed_link.path in ("", "/"):
+            link = urljoin(link, "/s/shop")
     items = product_items_from_html(str(soup))
     pages, src = [soup], "structured_data" if items else "none"
     if link:
@@ -312,6 +316,10 @@ def process(r, folder):
             ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
+    if order:
+        parsed_order = urlparse(order)
+        if parsed_order.netloc.lower().endswith("square.site") and parsed_order.path in ("", "/"):
+            order = urljoin(order, "/s/shop")
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "niche": niche_kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
