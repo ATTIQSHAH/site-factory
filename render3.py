@@ -124,12 +124,30 @@ def build3(d):
         facts_html = "".join(f'<div class="fact"><b>{E(label)}</b><span>{E(value)}</span></div>' for label, value in fi)
         story = (f'<p class="story-copy">{E(story_text)}</p>' if story_text else "") + (f'<div class="facts">{facts_html}</div>' if facts_html else "")
         if d["menu"]:
-            menu_cards = []
+            menu_groups = {}
             for item in d["menu"]:
+                item_name = (item.get("name") or "").lower()
+                supplied_section = (item.get("section") or "").strip()
+                if supplied_section:
+                    category = supplied_section
+                elif any(word in item_name for word in ("tart", "pie")):
+                    category = "Pies & Tarts"
+                elif any(word in item_name for word in ("cake", "smash")):
+                    category = "Cakes & Celebrations"
+                elif any(word in item_name for word in ("cookie", "brownie", "gingersnap")):
+                    category = "Cookies & Brownies"
+                elif any(word in item_name for word in ("americano", "cappuccino", "cappucino", "chai", "latte", "coffee", "tea")):
+                    category = "Coffee & Drinks"
+                else:
+                    category = "Bakery Favorites"
                 price = f'<span class="menu-item-price-tag">{E(item.get("price") or "")}</span>' if item.get("price") else ""
                 desc = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
-                menu_cards.append(f'<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">{E(item["name"])}</span>{price}</div>{desc}</article>')
-            menu = '<div class="menu-layout">' + "".join(menu_cards) + '</div>'
+                card = f'<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">{E(item["name"])}</span>{price}</div>{desc}</article>'
+                menu_groups.setdefault(category, []).append(card)
+            grouped_menu = []
+            for category, cards in menu_groups.items():
+                grouped_menu.append(f'<section class="menu-group"><h3 class="menu-group-title">{E(category)}</h3><div class="menu-layout">{"".join(cards)}</div></section>')
+            menu = '<div class="menu-groups">' + "".join(grouped_menu) + '</div>'
             if d.get("menu_url"):
                 menu += f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></p>'
         elif d.get("menu_url") or d.get("order_url"):
@@ -151,7 +169,7 @@ def build3(d):
     story_photo_markup = f'<div class="story-photo-frame"><img src="{E(story_photo_src)}" alt="{n}"></div>' if story_photo_src else '<div class="story-photo-frame" aria-hidden="true"></div>'
     hero_note = ""  # Avoid a generic placeholder panel; let the real business photography carry the hero.
     menu_intro = "Menu details from the business's published information." if d["menu"] or d.get("menu_url") or d.get("order_url") else "Contact the business for current menu information."
-    map_frame = '<div class="map-frame"><iframe src="https://maps.google.com/maps?q=' + q + '&output=embed" loading="lazy"></iframe></div>'
+    map_frame = (f'<div class="map-frame map-card"><span class="map-card-kicker">Find us</span><div><h3>Make your way to {n}</h3><p class="map-card-address">{E(d["address"])}</p></div><a class="btn-main" href="{dirn}" target="_blank" rel="noopener">Open in Google Maps</a></div>' if d.get("address") else "")
     rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     parsed = BeautifulSoup(t, "html.parser")
