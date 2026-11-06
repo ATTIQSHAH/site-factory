@@ -141,9 +141,19 @@ def build3(d):
     for link in parsed.select('a[href^="tel:"]'):
         if not link.get("href", "").replace("tel:", "").strip():
             link.decompose()
+    description = parsed.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    if description is None:
+        description = parsed.new_tag("meta", attrs={"name": "description"})
+        parsed.head.append(description)
+    if len(str(description.get("content", "")).strip()) < 60:
+        description["content"] = short
+    robots = parsed.find("meta", attrs={"name": re.compile("^robots$", re.I)})
+    if robots is None:
+        robots = parsed.new_tag("meta", attrs={"name": "robots"})
+        parsed.head.append(robots)
+    if "noindex" not in str(robots.get("content", "")).lower():
+        robots["content"] = "noindex,nofollow"
+    if parsed.find("meta", attrs={"name": re.compile("^viewport$", re.I)}) is None:
+        parsed.head.append(parsed.new_tag("meta", attrs={"name": "viewport", "content": "width=device-width, initial-scale=1"}))
     t = str(parsed)
-    if not re.search(r"<meta\s+name=['\"]description['\"]", t, re.I):
-        t = t.replace("</head>", '<meta name="description" content="' + E(short) + '"></head>')
-    if not re.search(r"<meta\s+name=['\"]robots['\"]", t, re.I):
-        t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>')
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
