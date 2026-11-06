@@ -124,7 +124,9 @@ def main():
                 "fixes": critique.get("fixes", []),
             }
         except Exception as exc:
-            visual_review = {"status": "error", "score": 0, "fixes": [str(exc)[:300]]}
+            message = str(exc)[:300]
+            status = "quota_exhausted" if "429" in message or "quota" in message.lower() else "error"
+            visual_review = {"status": status, "score": 0, "fixes": [message]}
 
     browser_passed = all(
         not check["horizontal_overflow"] and not check["broken_images"] and

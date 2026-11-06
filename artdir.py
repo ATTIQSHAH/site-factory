@@ -2,7 +2,7 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -37,9 +37,27 @@ def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
     body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240).json()
-    time.sleep(5); t = r["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", t.strip())
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
+    response = None
+    for attempt in range(3):
+        response = requests.post(url, json=body, timeout=240)
+        if response.status_code == 429 or 500 <= response.status_code < 600:
+            if attempt < 2:
+                try: delay = float(response.headers.get("Retry-After", ""))
+                except (TypeError, ValueError): delay = 2 ** attempt
+                time.sleep(min(max(delay, 2 ** attempt), 12))
+                continue
+            category = "quota/rate limit" if response.status_code == 429 else "temporary server failure"
+            raise RuntimeError(f"Gemini {category} (HTTP {response.status_code}): {response.text[:300]}")
+        response.raise_for_status()
+        break
+    payload = response.json()
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini returned no candidate: " + json.dumps(payload.get("promptFeedback", payload.get("error", {})))[:300])
+    t = candidates[0]["content"]["parts"][0]["text"]
+    return json.loads(t) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", t.strip())
+
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
