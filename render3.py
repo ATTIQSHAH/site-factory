@@ -132,11 +132,14 @@ def build3(d):
     parsed = BeautifulSoup(t, "html.parser")
     seen_images = set()
     for image in parsed.find_all("img"):
-        source = image.get("src")
-        if source and source in seen_images:
+        source = (image.get("src") or "").strip()
+        if not source or source in seen_images:
             image.decompose()
-        elif source:
+        else:
             seen_images.add(source)
+    for link in parsed.select('a[href^="tel:"]'):
+        if not link.get("href", "").replace("tel:", "").strip():
+            link.decompose()
     t = str(parsed)
     if not re.search(r"<meta\s+name=['\"]description['\"]", t, re.I):
         t = t.replace("</head>", '<meta name="description" content="' + E(short) + '"></head>')
