@@ -35,21 +35,29 @@ HARD RULES
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
+    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
     response = None
     for attempt in range(3):
         response = requests.post(url, json=body, timeout=240)
+        if response.status_code == 429:
+            try: error_payload = response.json()
+            except Exception: error_payload = {}
+            message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
+            if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                raise RuntimeError(f"Gemini HTTP 429: {message[:300]}")
         if response.status_code == 429 or 500 <= response.status_code < 600:
             if attempt < 2:
                 try: delay = float(response.headers.get("Retry-After", ""))
-                except (TypeError, ValueError): delay = 2 ** attempt
-                time.sleep(min(max(delay, 2 ** attempt), 12))
+                except (TypeError, ValueError): delay = 2 ** (attempt + 1)
+                time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
                 continue
-            category = "quota/rate limit" if response.status_code == 429 else "temporary server failure"
-            raise RuntimeError(f"Gemini {category} (HTTP {response.status_code}): {response.text[:300]}")
-        response.raise_for_status()
+            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
+        if hasattr(response, "raise_for_status"):
+            response.raise_for_status()
+        elif not getattr(response, "ok", True):
+            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
         break
     payload = response.json()
     candidates = payload.get("candidates") or []
@@ -90,7 +98,7 @@ def qa(root, slug, min_text=250):
     return issues, shots
 def critique(shots, name):
     parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
+    parts += [{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
     return gem(parts, js=True)
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""

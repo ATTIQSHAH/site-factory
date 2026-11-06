@@ -161,15 +161,19 @@ def build3(d):
     if description is None:
         description = parsed.new_tag("meta", attrs={"name": "description"})
         parsed.head.append(description)
-    if len(str(description.get("content", "")).strip()) < 60:
-        description["content"] = short
+    description_content = str(description.get("content", "")).strip()
+    if len(description_content) < 60:
+        description_content = short
+    description.attrs = {"name": "description", "content": description_content}
     robots = parsed.find("meta", attrs={"name": re.compile("^robots$", re.I)})
     if robots is None:
-        robots = parsed.new_tag("meta", attrs={"name": "robots"})
+        robots = parsed.new_tag("meta")
         parsed.head.append(robots)
-    if "noindex" not in str(robots.get("content", "")).lower():
-        robots["content"] = "noindex,nofollow"
-    if parsed.find("meta", attrs={"name": re.compile("^viewport$", re.I)}) is None:
-        parsed.head.append(parsed.new_tag("meta", attrs={"name": "viewport", "content": "width=device-width, initial-scale=1"}))
+    robots.attrs = {"name": "robots", "content": str(robots.get("content", "noindex,nofollow")) if "noindex" in str(robots.get("content", "")).lower() else "noindex,nofollow"}
+    viewport = parsed.find("meta", attrs={"name": re.compile("^viewport$", re.I)})
+    if viewport is None:
+        viewport = parsed.new_tag("meta")
+        parsed.head.append(viewport)
+    viewport.attrs = {"name": "viewport", "content": str(viewport.get("content", "width=device-width, initial-scale=1"))}
     t = str(parsed)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}

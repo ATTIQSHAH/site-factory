@@ -47,23 +47,30 @@ def _gemini_response(body, timeout):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GM}:generateContent?key={GEM}"
     for attempt in range(3):
         response = requests.post(url, timeout=timeout, json=body)
+        if response.status_code == 429:
+            try: error_payload = response.json()
+            except Exception: error_payload = {}
+            message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
+            if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                raise RuntimeError(f"Gemini HTTP 429: {message[:250]}")
         if response.status_code == 429 or 500 <= response.status_code < 600:
             if attempt < 2:
                 try: delay = float(response.headers.get("Retry-After", ""))
-                except (TypeError, ValueError): delay = 2 ** attempt
-                time.sleep(min(max(delay, 2 ** attempt), 12))
+                except (TypeError, ValueError): delay = 2 ** (attempt + 1)
+                time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
                 continue
-            raise RuntimeError(f"Gemini request unavailable (HTTP {response.status_code}): {response.text[:250]}")
+            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:250]}")
         response.raise_for_status()
         return response.json()
     raise RuntimeError("Gemini request failed after bounded retries")
+
 
 
 def gemini_menu(data, mime):
     if not GEM or not data or len(data) > 15_000_000: return []
     p = 'Extract the menu printed in this document as a JSON array of {"section":str,"name":str,"desc":str,"price":str}. Only items actually printed, nothing invented, max 30 items.'
     try:
-        payload = _gemini_response({"contents": [{"parts": [{"text": p}, {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}}]}], "generationConfig": {"response_mime_type": "application/json"}}, 90)
+        payload = _gemini_response({"contents": [{"parts": [{"text": p}, {"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode()}}]}], "generationConfig": {"responseMimeType": "application/json"}}, 90)
         items = json.loads(payload["candidates"][0]["content"]["parts"][0]["text"])
         return [i for i in items if isinstance(i, dict) and i.get("name")][:30]
     except Exception:
@@ -74,7 +81,7 @@ def label(im):
     if not GEM: return ""
     b = io.BytesIO(); t = im.copy(); t.thumbnail((640, 640)); t.save(b, "JPEG", quality=70)
     try:
-        payload = _gemini_response({"contents": [{"parts": [{"text": "Classify this image for a restaurant website. Reply with exactly one word: food, drink, interior, exterior, people, graphic, logo."}, {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(b.getvalue()).decode()}}]}]}, 40)
+        payload = _gemini_response({"contents": [{"parts": [{"text": "Classify this image for a restaurant website. Reply with exactly one word: food, drink, interior, exterior, people, graphic, logo."}, {"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(b.getvalue()).decode()}}]}]}, 40)
         w = payload["candidates"][0]["content"]["parts"][0]["text"].strip().lower().split()[0].strip(".,")
         return w if w in {"food", "drink", "interior", "exterior", "people", "graphic", "logo"} else ""
     except Exception:
