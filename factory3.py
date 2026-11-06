@@ -187,7 +187,8 @@ def browser_menu_items(url):
                 if not items:
                     items = menu_text(page.locator("body").inner_text())
                 status = response.status if response else "no-response"
-                print(f"Square menu browser: status={status}, product_links={page.locator('a[href*=\"/product/\"]').count()}, extracted={len(items)}")
+                product_link_count = page.locator("a[href*='/product/']").count()
+                print(f"Square menu browser: status={status}, product_links={product_link_count}, extracted={len(items)}")
                 return items[:24]
             finally:
                 browser.close()
