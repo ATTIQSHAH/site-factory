@@ -1,4 +1,5 @@
 import hashlib, html, os, re, urllib.parse as up
+from template_catalog import select as _catalogue_select
 E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
@@ -15,6 +16,25 @@ def safe_acc(acc, bg, ink):
     t = 0
     while cr(acc, bg) < 4.5 and t < 1: t += .1; acc = mix(acc, ink, t)
     return acc
+def select_template(kind, name="", about="", menu=None):
+    """Select a handcrafted template from the matching niche family."""
+    return _catalogue_select(kind, name=name, about=about, menu=menu)
+
+
+def logo_markup(logo, brand, background):
+    """Add a contrast plate only when the logo tone clashes with its background."""
+    if not logo:
+        return E(brand or "")
+    path, tone = logo
+    style = ""
+    if tone == "light" and lum(background) >= 0.5:
+        style = "background:#171210;padding:6px 10px;border-radius:8px"
+    elif tone == "dark" and lum(background) < 0.5:
+        style = "background:#ffffff;padding:6px 10px;border-radius:8px"
+    attrs = ' class="logo-contrast" style="' + style + '"' if style else ""
+    return '<img src="' + E(path) + '" alt="' + E(brand or "") + '"' + attrs + '>'
+
+
 def niche(n):
     n = n.lower()
     if re.search(r"coffee|cafe|café|roast|espresso", n): return "coffee", "coffee shop"
@@ -23,7 +43,12 @@ def niche(n):
     return "restaurant", "restaurant interior"
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "premium.html"), encoding="utf-8").read()
+    template_file, template_meta = select_template(d.get("niche", d["kind"]), name=d["name"], about=d.get("about", ""), menu=d.get("menu"))
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+    if not os.path.isfile(template_path):
+        template_file = "premium.html"
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+    t = open(template_path, encoding="utf-8").read()
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
@@ -49,7 +74,7 @@ def build3(d):
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n}" class="{"pill" if d["logo"][1] == "light" else "pillw"}">' if d.get("logo") else n
+    lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
@@ -80,4 +105,4 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero}
+    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}

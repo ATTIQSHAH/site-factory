@@ -46,11 +46,11 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
             fail(12, "suspicious one-character label or location", True)
             break
 
-    cards = soup.select(".menu-card")
+    cards = soup.select(".menu-card, .menu .it")
     if cards:
         names = []
         for card in cards:
-            node = card.select_one(".menu-item-title, h3, h4")
+            node = card.select_one(".menu-item-title, h3, h4, .it div span:first-child")
             if node:
                 names.append(re.sub(r"[^a-z0-9]+", " ", node.get_text(" ", strip=True).lower()).strip())
         counts = Counter(n for n in names if n)
@@ -60,7 +60,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
                     for n in soup.select(".menu-section-title")]
         if any(h and h in names for h in headings):
             fail(14, "menu heading repeats a product name", True)
-        prices = [n.get_text(" ", strip=True) for n in soup.select(".menu-item-price-tag") if n.get_text(" ", strip=True)]
+        prices = [n.get_text(" ", strip=True) for n in soup.select(".menu-item-price-tag, .it div span:last-child") if n.get_text(" ", strip=True)]
         price_counts = Counter(prices)
         if len(prices) >= 3:
             value, count = price_counts.most_common(1)[0]
@@ -77,15 +77,17 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     if hero_images.intersection(story_images):
         fail(10, "hero image repeated in about/story section", True)
 
-    has_menu = bool(cards) or any(
+    menu_link = any(
         re.search("menu|order|reservation|book a table", a.get_text(" ", strip=True) + " " + a.get("href", ""), re.I)
-        for a in soup.find_all("a")
+        and a.get("href", "").strip().lower().startswith(("https://", "http://"))
+        for a in soup.find_all("a", href=True)
     )
+    has_menu = len(cards) >= 3 or menu_link
     if not has_menu:
-        fail(12, "no menu, ordering or reservation path")
+        fail(18, "no usable menu, ordering or reservation path", True)
     if phone:
         digits = re.sub(r"\D", "", phone)
-        page_digits = re.sub(r"\\D", "", document or "")
+        page_digits = re.sub(r"\D", "", document or "")
         if len(digits) >= 7 and digits[-7:] not in page_digits:
             fail(15, "lead phone number missing")
         elif len(digits) >= 7 and not soup.select_one('a[href^="tel:"]'):
@@ -103,6 +105,4 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     score = max(0, min(100, score))
     passed = score >= 90 and not blocking
     return {"score": score, "passed": passed, "status": "ready" if passed else "needs_review",
-            "issues": issues, "blocking_issues": blocking}
-
-# production review improvements
+            "issues": issues, "blocking_issues": blocking, "menu_item_count": len(cards), "has_menu_path": has_menu}

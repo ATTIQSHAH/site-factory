@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "factory3.py"
+      - "business_intel.py"
+      - "template_catalog.py"
+      - "site_quality.py"
+      - "tests/**"
       - "artdir.py"
       - "media.py"
       - "render3.py"
@@ -37,6 +41,9 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
+      - name: Start from a clean isolated demo workspace
+        run: rm -rf sites/fluff-bake-bar review/fluff-bake-bar results/fluff-demo-results.csv
+
       - name: Generate only Fluff Bake Bar
         run: python factory3.py leads/input.csv
         env:
@@ -46,6 +53,8 @@ jobs:
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
           AI_DESIGN: ${{ vars.AI_DESIGN }}
           BASE_URL: ""
+          RESULTS: results/fluff-demo-results.csv
+          SITES_DIR: sites
 
       - name: Capture mobile and desktop screenshots and run quality checks
         run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
@@ -62,6 +71,6 @@ jobs:
             sites/fluff-bake-bar/index.html
             sites/fluff-bake-bar/img/**
             review/fluff-bake-bar/**
-            results/websites_tab.csv
+            results/fluff-demo-results.csv
           if-no-files-found: warn
           retention-days: 14

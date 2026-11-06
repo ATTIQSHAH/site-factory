@@ -47,5 +47,20 @@ class SiteQualityTests(unittest.TestCase):
         self.assertFalse(result["passed"])
 
 
+    def test_in_page_menu_anchor_is_not_a_real_menu_destination(self):
+        html = BASE.format("Fresh pastries and cakes. " * 20).replace(
+            '<a href="https://example.com/menu">Menu</a>', '<a href="#menu">Menu</a>')
+        result = assess_html(html, business_name="Fluff Bake Bar", phone="(713) 522-1900")
+        self.assertFalse(result["passed"])
+        self.assertFalse(result["has_menu_path"])
+        self.assertTrue(any("usable menu" in issue for issue in result["issues"]))
+
+    def test_external_menu_destination_is_a_valid_menu_path(self):
+        result = assess_html(BASE.format("Fresh pastries and cakes. " * 20),
+                             business_name="Fluff Bake Bar", phone="(713) 522-1900")
+        self.assertTrue(result["has_menu_path"])
+        self.assertTrue(result["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()
