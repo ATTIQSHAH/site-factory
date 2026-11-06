@@ -145,6 +145,12 @@ def build3(d):
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
+    story_photo_src = ph[4] if hero == "type" and len(ph) > 4 else (ph[1] if hero != "type" and len(ph) > 1 else "")
+    story_photo_markup = f'<div class="story-photo-frame"><img src="{E(story_photo_src)}" alt="{n}"></div>' if story_photo_src else '<div class="story-photo-frame" aria-hidden="true"></div>'
+    hero_note = '<div class="bento-quote-frame"><div style="font-weight:700;font-size:1.1rem;margin-bottom:.4rem">Business information</div><div style="color:var(--mut);font-size:.95rem">' + E(d.get("city") or "Contact and visit details") + '</div></div>'
+    menu_intro = "Menu details from the business's published information." if d["menu"] or d.get("menu_url") or d.get("order_url") else "Contact the business for current menu information."
+    map_frame = '<div class="map-frame"><iframe src="https://maps.google.com/maps?q=' + q + '&output=embed" loading="lazy"></iframe></div>'
+    rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     parsed = BeautifulSoup(t, "html.parser")
     seen_images = set()
