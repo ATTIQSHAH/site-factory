@@ -132,8 +132,10 @@ def build3(d):
             menu = '<div class="menu-layout">' + "".join(menu_cards) + '</div>'
             if d.get("menu_url"):
                 menu += f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></p>'
-        elif d.get("menu_url"):
-            menu = f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu and prices</a></p>'
+        elif d.get("menu_url") or d.get("order_url"):
+            menu_target = d.get("menu_url") or d.get("order_url")
+            menu_label = "View the full menu" if d.get("menu_url") else "Order online"
+            menu = f'<p><a class="btn-main" href="{E(menu_target)}" target="_blank" rel="noopener">{menu_label}</a></p>'
         else:
             menu = ""
         gallery_photos = ph[2:6] if hero != "type" and len(ph) >= 5 else []
