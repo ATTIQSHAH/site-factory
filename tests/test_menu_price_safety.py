@@ -22,5 +22,19 @@ class MenuPriceSafetyTests(unittest.TestCase):
         self.assertEqual(suppress_ambiguous_menu_prices(rows), rows)
 
 
+    def test_menu_parser_preserves_price_ranges(self):
+        from factory3 import menu_text
+        html = """<main>
+          <h2>Cakes</h2>
+          <p>Birthday Cake $58.00 - $118.00</p>
+          <p>Chocolate Chip Cookie $3.25</p>
+          <p>Brownie Bar $4.25</p>
+          <p>Lemon Tart $5.00</p>
+          <p>Smash Cake $28.00</p>
+        </main>"""
+        items = menu_text(html)
+        self.assertGreaterEqual(len(items), 5)
+        self.assertEqual(items[0]["price"], "$58.00 - $118.00")
+
 if __name__ == "__main__":
     unittest.main()
