@@ -2,7 +2,7 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -35,11 +35,37 @@ HARD RULES
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
     if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
+    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
     if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240).json()
-    time.sleep(5); t = r["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", t.strip())
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
+    response = None
+    for attempt in range(3):
+        response = requests.post(url, json=body, timeout=240)
+        if response.status_code == 429:
+            try: error_payload = response.json()
+            except Exception: error_payload = {}
+            message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
+            if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                raise RuntimeError(f"Gemini HTTP 429: {message[:300]}")
+        if response.status_code == 429 or 500 <= response.status_code < 600:
+            if attempt < 2:
+                try: delay = float(response.headers.get("Retry-After", ""))
+                except (TypeError, ValueError): delay = 2 ** (attempt + 1)
+                time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
+                continue
+            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
+        if hasattr(response, "raise_for_status"):
+            response.raise_for_status()
+        elif not getattr(response, "ok", True):
+            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
+        break
+    payload = response.json()
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini returned no candidate: " + json.dumps(payload.get("promptFeedback", payload.get("error", {})))[:300])
+    t = candidates[0]["content"]["parts"][0]["text"]
+    return json.loads(t) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", t.strip())
+
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
@@ -71,9 +97,67 @@ def qa(root, slug, min_text=250):
     finally: s.shutdown()
     return issues, shots
 def critique(shots, name):
-    parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
-    return gem(parts, js=True)
+    """Review mobile and desktop screenshots through OpenRouter's vision API."""
+    key = os.getenv("OPENROUTER_API_KEY", "")
+    if not key:
+        raise RuntimeError("OPENROUTER_API_KEY is not configured; visual review cannot run")
+    primary = os.getenv("OPENROUTER_VISUAL_MODEL", "nvidia/nemotron-3.5-super-vl:free")
+    fallback = os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "google/gemma-4-26b-a4b-it:free")
+    tertiary = os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")
+    prompt = (
+        f"You are a ruthless senior art director reviewing a website demo for {name}, "
+        "which will be pitched to the business owner. Image 1 is mobile and image 2 is desktop. "
+        "Score 1-10 for distinctive non-template design, polish and spacing, image crops and quality, "
+        "text contrast, and visual hierarchy. Penalise generic, cheap, empty, cluttered, or broken layouts. "
+        'Return only JSON with this shape: {"score": number, "fixes": ["up to 5 specific concrete fixes"]}.'
+    )
+    content = [{"type": "text", "text": prompt}]
+    for shot in shots:
+        encoded = base64.b64encode(shot).decode("ascii")
+        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
+    errors = []
+    for model in dict.fromkeys([primary, fallback, tertiary]):
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": content}],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.1,
+                    "max_tokens": 1200,
+                },
+                timeout=120,
+            )
+            if response.status_code == 429 or response.status_code >= 500:
+                errors.append(f"{model}: HTTP {response.status_code}: {response.text[:180]}")
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            choices = payload.get("choices") or []
+            message = choices[0].get("message") if choices else None
+            answer = message.get("content") if isinstance(message, dict) else None
+            if isinstance(answer, list):
+                answer = "".join(part.get("text", "") for part in answer if isinstance(part, dict) and part.get("text"))
+            if not isinstance(answer, str) or not answer.strip():
+                reasoning = message.get("reasoning") if isinstance(message, dict) else None
+                detail = f"; reasoning was returned ({str(reasoning)[:100]})" if reasoning else ""
+                raise ValueError("Provider returned no text content" + detail)
+            answer = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip())
+            result = json.loads(answer)
+            score = float(result["score"])
+            if not 1 <= score <= 10:
+                raise ValueError(f"Visual score outside 1-10 range: {score}")
+            fixes = result.get("fixes", [])
+            if not isinstance(fixes, list):
+                raise ValueError("Visual review fixes must be a JSON list")
+            return {"score": score, "fixes": fixes[:5], "provider": "openrouter", "model": model}
+        except Exception as exc:
+            errors.append(f"{model}: {str(exc)[:180]}")
+    raise RuntimeError("All OpenRouter visual-review models failed: " + " | ".join(errors))
+
+
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
     folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
