@@ -17,7 +17,7 @@ def about_from_soup(soup):
     """Extract a source-authored business paragraph while rejecting contact details."""
     candidates = []
     for paragraph in soup.find_all("p"):
-        value = re.sub(r"s+", " ", paragraph.get_text(" ", strip=True)).strip()
+        value = " ".join(paragraph.get_text(" ", strip=True).split())
         if len(value) < 70 or len(value) > 700:
             continue
         if re.search(r"@|\b(?:tel|phone|call|address|directions)\b|\+?\d[\d(). -]{7,}", value, re.I):
@@ -160,7 +160,7 @@ def get_menu(soup, base):
     return items, link, src
 def hours_of(biz, text):
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    short_days = {"mo": "Monday", "tu": "Tuesday", "we": "Wednesday", "th": "Thursday", "fr": "Friday", "sa": "Saturday", "su": "Sunday"}
+    short_days = {"mo": "Monday", "mon": "Monday", "tu": "Tuesday", "tue": "Tuesday", "we": "Wednesday", "wed": "Wednesday", "th": "Thursday", "thu": "Thursday", "fr": "Friday", "fri": "Friday", "sa": "Saturday", "sat": "Saturday", "su": "Sunday", "sun": "Sunday"}
 
     def clock(value):
         match = re.fullmatch(r"\s*(\d{1,2})(?::(\d{2}))?\s*([ap])?m?\.?\s*", value, re.I)
@@ -175,9 +175,9 @@ def hours_of(biz, text):
         return f"{hour}{':' + str(minute).zfill(2) if minute else ''} {period}"
 
     def normalize_label(label):
-        raw = re.sub(r"\s+", " ", label.strip()).replace("–", " to ").replace("-", " to ")
-        raw = re.sub(r"\b(Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda match: short_days[match.group(1).lower()], raw, flags=re.I)
-        return raw
+        raw = re.sub(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda match: short_days[match.group(1).lower()], label.strip(), flags=re.I)
+        raw = re.sub(r"\s*(?:-|–|through|to)\s*", " to ", raw, flags=re.I)
+        return " ".join(raw.split())
 
     def parse_rows(source):
         parsed = []
@@ -218,7 +218,7 @@ def address_of(biz, text, soup=None):
         parts = [value.get(key) for key in ("streetAddress", "addressLocality", "addressRegion", "postalCode")]
         return ", ".join(str(part) for part in parts if part), value.get("addressLocality", "")
     source = (soup.get_text(" ", strip=True) + " " if soup else "") + (text or "")
-    pattern = re.compile(r"(\d{1,6}\s+(?:[A-Za-z0-9.'#-]+\s+){1,8}(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Highway|Pkwy|Way)\.?)\s*,?\s*([A-Za-z .]+?)\s*,?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)\b")
+    pattern = re.compile(r"(\d{1,6}\s+(?:[A-Za-z0-9.'#-]+\s+){1,8}(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Highway|Hwy|Pkwy|Way)\.?)\s*,?\s*([A-Za-z .]+?)\s*,?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)\b")
     match = pattern.search(source)
     if match:
         street, city, state, postal = match.groups()

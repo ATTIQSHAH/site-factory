@@ -176,4 +176,10 @@ def build3(d):
         parsed.head.append(viewport)
     viewport.attrs = {"name": "viewport", "content": str(viewport.get("content", "width=device-width, initial-scale=1"))}
     t = str(parsed)
+    def ordered_meta(match):
+        tag = match.group(0)
+        name_match = re.search(r'\bname="([^"]+)"', tag, re.I)
+        content_match = re.search(r'\bcontent="([^"]*)"', tag, re.I)
+        return '<meta name="' + name_match.group(1) + '" content="' + (content_match.group(1) if content_match else '') + '">'
+    t = re.sub(r'<meta\b[^>]*\bname="(?:description|robots)"[^>]*>', ordered_meta, t, flags=re.I)
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
