@@ -68,6 +68,7 @@ def build3(d):
             while len(w) > 6 and w[-1].lower().strip(",") in {"and", "with", "or", "of", "the", "a", "an", "to", "in", "for", "by", "as", "&", "at", "on"}: w = w[:-1]
             ab = " ".join(w).rstrip(" ,;:-") + "."
     m = re.match(r"(.{40,150}?[.!?])(\s|$)", ab); short = m.group(1) if m else (ab if len(ab) <= 150 else ab[:150].rsplit(" ", 1)[0])
+    if not short.strip(): short = "Find the details you need to plan your visit or get in touch."
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
@@ -110,4 +111,8 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
+    if not re.search(r'<meta\\s+name=["\\']description["\\']', t, re.I):
+        t = t.replace("</head>", '<meta name="description" content="' + E(short) + '></head>')
+    if not re.search(r'<meta\\s+name=["\\']robots["\\']', t, re.I):
+        t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>')
+    assert not re.search(r"\\{\\{\\w+\\}\\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
