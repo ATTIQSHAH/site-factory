@@ -74,13 +74,14 @@ def build3(d):
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
     show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
     secs = [("story", "About")] if show_story else []
-    has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
+    has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if hero != "type" and len(ph) >= 5 else []; secs += [("visit", "Visit")]
     lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
         facts = "".join(f'<div class="fact"><b>{E(a)}</b><span>{E(b)}</span></div>' for a, b in fi)
-        img = f'<div class="imgf rv"><img src="{E(ph[1] if len(ph) > 1 else ph[0])}" alt="{n}"></div>' if ph else ""
+        story_photo = ph[4] if hero == "type" and len(ph) > 4 else (ph[1] if hero != "type" and len(ph) > 1 else None)
+        img = f'<div class="imgf rv"><img src="{E(story_photo)}" alt="{n}"></div>' if story_photo else ""
         story = f'<section id="story"><div class="wrap two {"flip" if seed % 2 else ""}"><div class="rv"><span class="eyebrow">About</span><h2>{"Our story" if rest else "The essentials"}</h2>{para}<div class="facts">{facts}</div></div>{img}</div></section>'
     if d["menu"]:
         out, cur = "", None
@@ -93,7 +94,7 @@ def build3(d):
     elif d.get("menu_url"):
         bgi = f"style=\"background-image:url('{E(ph[-1])}')\"" if ph else ""; nc = "" if ph else " nophoto"
         menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
-    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[:4]) + "</div></div></section>"
+    if hero != "type" and len(ph) >= 5: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[2:6]) + "</div></div></section>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
     right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
