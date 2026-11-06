@@ -3,9 +3,11 @@ from factory3 import suppress_ambiguous_menu_prices
 
 
 class MenuPriceSafetyTests(unittest.TestCase):
-    def test_repeated_prices_are_suppressed(self):
+    def test_repeated_prices_are_removed_but_menu_items_are_kept(self):
         rows = [{"name": f"Item {n}", "price": "$56.00"} for n in range(4)]
-        self.assertEqual(suppress_ambiguous_menu_prices(rows), [])
+        cleaned = suppress_ambiguous_menu_prices(rows)
+        self.assertEqual([row["name"] for row in cleaned], [row["name"] for row in rows])
+        self.assertTrue(all(row["price"] == "" for row in cleaned))
 
     def test_distinct_prices_are_preserved(self):
         rows = [

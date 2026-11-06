@@ -69,6 +69,7 @@ def main():
                   const duplicates=sources.filter((src,i)=>sources.indexOf(src)!==i);
                   return {
                     horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth+2,
+                    overflow_elements: [...document.querySelectorAll("body *")].map(e => { const r=e.getBoundingClientRect(); return {tag:e.tagName, className: typeof e.className === "string" ? e.className.slice(0,60) : "", right: Math.round(r.right), width: Math.round(r.width)}; }).filter(e => e.right > window.innerWidth+2).slice(0,12),
                     broken_images: [...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.currentSrc||i.src),
                     menu_card_count: cards.length,
                     menu_columns: columns,

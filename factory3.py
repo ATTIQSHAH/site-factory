@@ -48,7 +48,9 @@ def suppress_ambiguous_menu_prices(items):
         counts = Counter(prices)
         value, count = counts.most_common(1)[0]
         if value and count >= 3 and count / len(prices) >= 0.6:
-            return []
+            for row in rows:
+                if str(row.get("price", "")).strip():
+                    row["price"] = ""
     return rows
 
 

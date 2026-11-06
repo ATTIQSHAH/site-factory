@@ -153,6 +153,10 @@ def build3(d):
     rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     parsed = BeautifulSoup(t, "html.parser")
+    ids = {node.get("id") for node in parsed.find_all(id=True)}
+    for anchor in parsed.find_all("a", href=True):
+        if anchor.get("href") == "#story" and "story" not in ids and "about" in ids:
+            anchor["href"] = "#about"
     seen_images = set()
     for image in parsed.find_all("img"):
         source = (image.get("src") or "").strip()
@@ -182,10 +186,21 @@ def build3(d):
         parsed.head.append(viewport)
     viewport.attrs = {"name": "viewport", "content": str(viewport.get("content", "width=device-width, initial-scale=1"))}
     t = str(parsed)
+    responsive_css = """<style id="site-factory-layout-guard">
+html,body{max-width:100%;overflow-x:hidden}
+img,iframe,video{max-width:100%}
+.hero,.bento-hero-left,.bento-hero-right,.bento-img-frame,.story-card-grid,.visit-hub,.menu-layout,.gallery-showcase,.map-frame{min-width:0;max-width:100%}
+.hero>*,.story-card-grid>*,.visit-hub>*,.bento-hero-right>*,.menu-layout>*,.gallery-showcase>*{min-width:0}
+@media(max-width:480px){.menu-layout,.gallery-showcase{grid-template-columns:minmax(0,1fr)!important}.menu-card{min-width:0}}
+@media(max-width:768px){.m:not(.quickbar-visible){display:none!important}.m.quickbar-visible{display:flex!important}}
+</style>"""
+    t = t.replace("</head>", responsive_css + "</head>")
     def ordered_meta(match):
         tag = match.group(0)
         name_match = re.search(r'\bname="([^"]+)"', tag, re.I)
         content_match = re.search(r'\bcontent="([^"]*)"', tag, re.I)
         return '<meta name="' + name_match.group(1) + '" content="' + (content_match.group(1) if content_match else '') + '">'
     t = re.sub(r'<meta\b[^>]*\bname="(?:description|robots)"[^>]*>', ordered_meta, t, flags=re.I)
+    quickbar_script = """<script>(function(){var bar=document.querySelector('.m'),hero=document.querySelector('.hero');if(!bar||!hero||!window.IntersectionObserver)return;var observer=new IntersectionObserver(function(entries){bar.classList.toggle('quickbar-visible',!entries[0].isIntersecting);},{threshold:0});observer.observe(hero);})();</script>"""
+    t = t.replace("</body>", quickbar_script + "</body>")
     assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
