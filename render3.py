@@ -57,7 +57,7 @@ def build3(d):
             label = source_soup.new_tag("span")
             label.string = "{{EYEBROW}}"
             badge.append(label)
-        unsupported = re.compile(r"\b(?:michelin|award[- ]winning|36[- ]hour|stone[- ]ground|100%\s*(?:plant[- ]based|gluten[- ]free)|organic(?:\s+\w+){0,2}|vegan(?:\s+\w+){0,2}|gluten[- ]free|certified\s+angus|breton cider|walk[- ]ins|fresh.{0,30}daily|daily.{0,20}(?:baked|roasted|fresh)|seasonal harvests|time[- ]honored recipes)\b", re.I)
+        unsupported = re.compile(r"\b(?:michelin|award[- ]winning|36[- ]hour|stone[- ]ground|100%\s*(?:plant[- ]based|gluten[- ]free)|organic(?:\s+\w+){0,2}|vegan(?:\s+\w+){0,2}|gluten[- ]free|certified\s+angus|breton cider|walk[- ]ins|fresh.{0,30}daily|daily.{0,20}(?:baked|roasted|fresh)|seasonal harvests|seasonal ingredients|every morning|fresh batch|daily bake|locally sourced|locally grown|house[- ]made|hand[- ]made|handcrafted|family[- ]owned|family recipes|time[- ]honored recipes)\b", re.I)
         for node in list(source_soup.find_all(string=True)):
             if node.parent and node.parent.name in {"script", "style"}:
                 continue
