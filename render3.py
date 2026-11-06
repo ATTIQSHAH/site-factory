@@ -72,8 +72,9 @@ def build3(d):
     if not short.strip(): short = "Find the details you need to plan your visit or get in touch."
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""
+    story_text = rest if len(rest) >= 80 else (ab if len(ab) >= 80 else "")
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
-    show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
+    show_story = bool(story_text or fi); para = f'<p class="lead">{E(story_text)}</p>' if story_text else ""
     secs = [("story", "About")] if show_story else []
     has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if hero != "type" and len(ph) >= 5 else []; secs += [("visit", "Visit")]
     lg = logo_markup(d.get("logo"), d["name"], bg)
@@ -105,7 +106,7 @@ def build3(d):
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
         facts_html = "".join(f'<div class="fact"><b>{E(label)}</b><span>{E(value)}</span></div>' for label, value in fi)
-        story = (f'<p class="story-copy">{E(rest)}</p>' if rest else "") + (f'<div class="facts">{facts_html}</div>' if facts_html else "")
+        story = (f'<p class="story-copy">{E(story_text)}</p>' if story_text else "") + (f'<div class="facts">{facts_html}</div>' if facts_html else "")
         if d["menu"]:
             menu_cards = []
             for item in d["menu"]:
