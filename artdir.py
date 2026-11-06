@@ -97,9 +97,60 @@ def qa(root, slug, min_text=250):
     finally: s.shutdown()
     return issues, shots
 def critique(shots, name):
-    parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
-    return gem(parts, js=True)
+    """Review mobile and desktop screenshots through OpenRouter's vision API."""
+    key = os.getenv("OPENROUTER_API_KEY", "")
+    if not key:
+        raise RuntimeError("OPENROUTER_API_KEY is not configured; visual review cannot run")
+    primary = os.getenv("OPENROUTER_VISUAL_MODEL", "nvidia/nemotron-3.5-super-vl:free")
+    fallback = os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "google/gemma-4-26b-a4b-it:free")
+    prompt = (
+        f"You are a ruthless senior art director reviewing a website demo for {name}, "
+        "which will be pitched to the business owner. Image 1 is mobile and image 2 is desktop. "
+        "Score 1-10 for distinctive non-template design, polish and spacing, image crops and quality, "
+        "text contrast, and visual hierarchy. Penalise generic, cheap, empty, cluttered, or broken layouts. "
+        'Return only JSON with this shape: {"score": number, "fixes": ["up to 5 specific concrete fixes"]}.'
+    )
+    content = [{"type": "text", "text": prompt}]
+    for shot in shots:
+        encoded = base64.b64encode(shot).decode("ascii")
+        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
+    errors = []
+    for model in dict.fromkeys([primary, fallback]):
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": content}],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.1,
+                    "max_tokens": 1200,
+                },
+                timeout=120,
+            )
+            if response.status_code == 429 or response.status_code >= 500:
+                errors.append(f"{model}: HTTP {response.status_code}: {response.text[:180]}")
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            answer = payload["choices"][0]["message"]["content"]
+            if isinstance(answer, list):
+                answer = "".join(part.get("text", "") for part in answer if isinstance(part, dict))
+            answer = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip())
+            result = json.loads(answer)
+            score = float(result["score"])
+            if not 1 <= score <= 10:
+                raise ValueError(f"Visual score outside 1-10 range: {score}")
+            fixes = result.get("fixes", [])
+            if not isinstance(fixes, list):
+                raise ValueError("Visual review fixes must be a JSON list")
+            return {"score": score, "fixes": fixes[:5], "provider": "openrouter", "model": model}
+        except Exception as exc:
+            errors.append(f"{model}: {str(exc)[:180]}")
+    raise RuntimeError("All OpenRouter visual-review models failed: " + " | ".join(errors))
+
+
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
     folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
