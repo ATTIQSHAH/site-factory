@@ -138,6 +138,30 @@ def product_items_from_html(document):
         except Exception: continue
     return found
 
+def browser_menu_items(url):
+    """Render JavaScript storefronts (notably Square Online) when plain HTTP has no product data."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            try:
+                page = browser.new_page(viewport={"width": 1280, "height": 900})
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                try:
+                    page.wait_for_selector("a[href*='/product/'], [class*='product']", timeout=10000)
+                except Exception:
+                    page.wait_for_timeout(1500)
+                document = page.content()
+                items = menu_text(document) or product_items_from_html(document)
+                if not items:
+                    items = menu_text(page.locator("body").inner_text())
+                return items[:24]
+            finally:
+                browser.close()
+    except Exception:
+        return []
+
+
 def get_menu(soup, base):
     candidates = []
     for anchor in soup.find_all("a", href=True):
@@ -172,6 +196,10 @@ def get_menu(soup, base):
                 pages.append(BeautifulSoup(response.text, "html.parser"))
         except Exception:
             link = None
+        if not items and link and urlparse(link).netloc.lower().endswith("square.site"):
+            rendered_items = browser_menu_items(link)
+            if rendered_items:
+                items, src = rendered_items, "browser"
         if not items and link:
             src = "link"
     if not items:
