@@ -137,29 +137,52 @@ def product_items_from_html(document):
     return found
 
 def get_menu(soup, base):
-    link = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"menu", a["href"] + a.get_text(), re.I) and not a["href"].lower().endswith(".pdf") and "order" not in a.get_text().lower()), None)
-    pages, items, src = [soup], product_items_from_html(str(soup)), "none"
+    candidates = []
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"].strip()
+        label = anchor.get_text(" ", strip=True)
+        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")) or href.lower().endswith(".pdf"):
+            continue
+        signal = (href + " " + label).lower()
+        if not re.search(r"menu|order|shop|store|product|online|toast|square|chownow|doordash|ubereats", signal):
+            continue
+        score = (5 if "menu" in signal else 0) + (4 if re.search(r"shop|store|product", signal) else 0) + (3 if re.search(r"order|online|toast|square|chownow|doordash|ubereats", signal) else 0)
+        candidates.append((score, urljoin(base, href)))
+    link = max(candidates, default=(0, None), key=lambda item: item[0])[1]
+    items = product_items_from_html(str(soup))
+    pages, src = [soup], "structured_data" if items else "none"
     if link:
         try:
-            r = get(link)
-            if getattr(r, "status_code", 200) >= 400:
+            response = get(link)
+            if getattr(response, "status_code", 200) >= 400:
                 link = None
             else:
-                page_items = menu_text(r.text) or product_items_from_html(r.text)
-                if page_items: items = page_items
-                pages.append(BeautifulSoup(r.text, "html.parser"))
+                text_items = menu_text(response.text)
+                schema_items = product_items_from_html(response.text)
+                if text_items:
+                    items, src = text_items, "text"
+                elif schema_items:
+                    items, src = schema_items, "structured_data"
+                pages.append(BeautifulSoup(response.text, "html.parser"))
         except Exception:
             link = None
-        src = "text" if items else ("link" if link else "none")
+        if not items and link:
+            src = "link"
     if not items:
-        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for p in pages for a in p.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
-        imgs = list(dict.fromkeys(urljoin(base, i.get("src")) for p in pages for i in p.find_all("img") if i.get("src") and re.search(r"menu", i["src"] + (i.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", i["src"], re.I)))
-        for u, mime in [(x, "application/pdf") for x in pdfs[:2]] + [(x, "image/jpeg") for x in imgs[:2]]:
-            data, ct = media.dl(u); items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (ct.split(";")[0] or mime))
-            if len(items) >= 5: src = "ai"; link = link or u; break
+        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for page in pages for a in page.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
+        imgs = list(dict.fromkeys(urljoin(base, image.get("src")) for page in pages for image in page.find_all("img") if image.get("src") and re.search(r"menu", image["src"] + (image.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", image["src"], re.I)))
+        for url, mime in [(value, "application/pdf") for value in pdfs[:2]] + [(value, "image/jpeg") for value in imgs[:2]]:
+            data, content_type = media.dl(url)
+            items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (content_type.split(";")[0] or mime))
+            if len(items) >= 5:
+                src = "ai"
+                link = link or url
+                break
             items = []
-        if not items and pdfs and not link: link, src = pdfs[0], "link"
+        if not items and pdfs and not link:
+            link, src = pdfs[0], "link"
     return items, link, src
+
 def hours_of(biz, text):
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     short_days = {"mo": "Monday", "mon": "Monday", "tu": "Tuesday", "tue": "Tuesday", "we": "Wednesday", "wed": "Wednesday", "th": "Thursday", "thu": "Thursday", "fr": "Friday", "fri": "Friday", "sa": "Saturday", "sat": "Saturday", "su": "Sunday", "sun": "Sunday"}
