@@ -2,6 +2,7 @@
 import argparse
 import io
 import json
+import os
 import re
 import threading
 from functools import partial
@@ -116,7 +117,7 @@ def main():
     }
 
     visual_review = {"status": "unavailable", "score": 0, "fixes": []}
-    if artdir.KEY and all(label in screenshots for label in ("mobile", "desktop")):
+    if os.getenv("OPENROUTER_API_KEY") and all(label in screenshots for label in ("mobile", "desktop")):
         try:
             images = []
             for label in ("mobile", "desktop"):
