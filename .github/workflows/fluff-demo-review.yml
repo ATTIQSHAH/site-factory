@@ -49,9 +49,8 @@ jobs:
         env:
           ONLY_WEBSITE: https://fluffbakebar.com/
           MAX_PER_RUN: "1"
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_VISUAL_MODEL: nvidia/nemotron-3.5-super-vl:free
-          OPENROUTER_VISUAL_FALLBACK_MODEL: google/gemma-4-26b-a4b-it:free
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_DESIGN_MODEL: gemini-3.8-flash
           AI_DESIGN: ${{ vars.AI_DESIGN }}
           BASE_URL: ""
           RESULTS: results/fluff-demo-results.csv
@@ -60,8 +59,9 @@ jobs:
       - name: Capture mobile and desktop screenshots and run quality checks
         run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_DESIGN_MODEL: gemini-3.8-flash
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_VISUAL_MODEL: nvidia/nemotron-3.5-super-vl:free
+          OPENROUTER_VISUAL_FALLBACK_MODEL: google/gemma-4-26b-a4b-it:free
 
       - name: Upload generated demo and review evidence
         if: always()
