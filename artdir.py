@@ -103,6 +103,7 @@ def critique(shots, name):
         raise RuntimeError("OPENROUTER_API_KEY is not configured; visual review cannot run")
     primary = os.getenv("OPENROUTER_VISUAL_MODEL", "nvidia/nemotron-3.5-super-vl:free")
     fallback = os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "google/gemma-4-26b-a4b-it:free")
+    tertiary = os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")
     prompt = (
         f"You are a ruthless senior art director reviewing a website demo for {name}, "
         "which will be pitched to the business owner. Image 1 is mobile and image 2 is desktop. "
@@ -115,7 +116,7 @@ def critique(shots, name):
         encoded = base64.b64encode(shot).decode("ascii")
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
     errors = []
-    for model in dict.fromkeys([primary, fallback]):
+    for model in dict.fromkeys([primary, fallback, tertiary]):
         try:
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -134,9 +135,15 @@ def critique(shots, name):
                 continue
             response.raise_for_status()
             payload = response.json()
-            answer = payload["choices"][0]["message"]["content"]
+            choices = payload.get("choices") or []
+            message = choices[0].get("message") if choices else None
+            answer = message.get("content") if isinstance(message, dict) else None
             if isinstance(answer, list):
-                answer = "".join(part.get("text", "") for part in answer if isinstance(part, dict))
+                answer = "".join(part.get("text", "") for part in answer if isinstance(part, dict) and part.get("text"))
+            if not isinstance(answer, str) or not answer.strip():
+                reasoning = message.get("reasoning") if isinstance(message, dict) else None
+                detail = f"; reasoning was returned ({str(reasoning)[:100]})" if reasoning else ""
+                raise ValueError("Provider returned no text content" + detail)
             answer = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip())
             result = json.loads(answer)
             score = float(result["score"])
