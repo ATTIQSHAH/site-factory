@@ -136,14 +136,15 @@ def product_items_from_html(document):
 
 def get_menu(soup, base):
     link = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"menu", a["href"] + a.get_text(), re.I) and not a["href"].lower().endswith(".pdf") and "order" not in a.get_text().lower()), None)
-    pages, items, src = [soup], [], "none"
+    pages, items, src = [soup], product_items_from_html(str(soup)), "none"
     if link:
         try:
             r = get(link)
             if getattr(r, "status_code", 200) >= 400:
                 link = None
             else:
-                items = menu_text(r.text)
+                page_items = menu_text(r.text) or product_items_from_html(r.text)
+                if page_items: items = page_items
                 pages.append(BeautifulSoup(r.text, "html.parser"))
         except Exception:
             link = None
@@ -253,13 +254,13 @@ def process(r, folder):
     os.makedirs(f"{folder}/img", exist_ok=True)
     name = r.get("Name") or biz.get("name") or (soup.title.get_text(" ", strip=True) if soup.title else "").split("|")[0].strip()
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
+    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else about_from_soup(soup)
     headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])]
     schema_types = []
     for node in structured:
         value = node.get("@type", [])
         schema_types.extend(value if isinstance(value, list) else [value])
-    addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
+    addr, city = address_of(biz, text, soup); items, menu_url, msrc = get_menu(soup, base)
     items = suppress_ambiguous_menu_prices(items)
     title = soup.title.get_text(" ", strip=True) if soup.title else ""
     niche_kind, q, classification = classify_business(name, title, about, headings, items, schema_types)
