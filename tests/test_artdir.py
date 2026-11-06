@@ -66,6 +66,31 @@ class GeminiPayloadTests(unittest.TestCase):
         image_part = second_body["messages"][0]["content"][1]
         self.assertEqual(image_part["type"], "image_url")
         self.assertTrue(image_part["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+    @patch("artdir.requests.post")
+    def test_empty_primary_vision_response_uses_fallback(self, post):
+        empty = SimpleNamespace(
+            status_code=200, text="",
+            json=lambda: {"choices": [{"message": {"content": None, "reasoning": "internal reasoning"}}]},
+            raise_for_status=lambda: None,
+        )
+        success = SimpleNamespace(
+            status_code=200, text="",
+            json=lambda: {"choices": [{"message": {"content": '{"score": 9, "fixes": []}'}}]},
+            raise_for_status=lambda: None,
+        )
+        post.side_effect = [empty, success]
+        env = {
+            "OPENROUTER_API_KEY": "test-openrouter-key",
+            "OPENROUTER_VISUAL_MODEL": "nvidia/nemotron-3.5-super-vl:free",
+            "OPENROUTER_VISUAL_FALLBACK_MODEL": "google/gemma-4-26b-a4b-it:free",
+            "OPENROUTER_VISUAL_TERTIARY_MODEL": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        }
+        with patch.dict("os.environ", env, clear=False):
+            result = artdir.critique([b"fake-image"], "Fluff Bake Bar")
+        self.assertEqual(result["score"], 9)
+        self.assertEqual(result["model"], "google/gemma-4-26b-a4b-it:free")
+        self.assertEqual(post.call_count, 2)
+
 
 
 if __name__ == "__main__":
