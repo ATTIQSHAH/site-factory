@@ -1,5 +1,6 @@
 import hashlib, html, os, re, urllib.parse as up
 from template_catalog import select as _catalogue_select
+from bs4 import BeautifulSoup
 E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
@@ -103,15 +104,40 @@ def build3(d):
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", d.get("ig")), ("Facebook", d.get("fb"))] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
     if template_file != "premium.html":
-        def unwrap_section(fragment):
-            match = re.match(r"\\s*<section\\b[^>]*>(.*)</section>\\s*$", fragment or "", re.S)
-            return match.group(1) if match else (fragment or "")
-        story, menu, gal, visit = (unwrap_section(part) for part in (story, menu, gal, visit))
+        facts_html = "".join(f'<div class="fact"><b>{E(label)}</b><span>{E(value)}</span></div>' for label, value in fi)
+        story = (f'<p class="story-copy">{E(rest)}</p>' if rest else "") + (f'<div class="facts">{facts_html}</div>' if facts_html else "")
+        if d["menu"]:
+            menu_cards = []
+            for item in d["menu"]:
+                price = f'<span class="menu-item-price-tag">{E(item.get("price") or "")}</span>' if item.get("price") else ""
+                desc = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
+                menu_cards.append(f'<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">{E(item["name"])}</span>{price}</div>{desc}</article>')
+            menu = '<div class="menu-layout">' + "".join(menu_cards) + '</div>'
+            if d.get("menu_url"):
+                menu += f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></p>'
+        elif d.get("menu_url"):
+            menu = f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu and prices</a></p>'
+        else:
+            menu = ""
+        gallery_photos = ph[2:6] if hero != "type" and len(ph) >= 5 else []
+        gal = '<div class="gallery-showcase">' + "".join(f'<div class="gallery-item"><img src="{E(photo)}" alt="{n} gallery image" loading="lazy"></div>' for photo in gallery_photos) + '</div>' if gallery_photos else ""
+        visit_address = f'<p class="visit-address">{E(d["address"])}</p>' if d.get("address") else ""
+        visit_hours = f'<table class="hours-list"><tbody>{hrs}</tbody></table>' if hrs else ""
+        visit = visit_address + visit_hours
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
+    parsed = BeautifulSoup(t, "html.parser")
+    seen_images = set()
+    for image in parsed.find_all("img"):
+        source = image.get("src")
+        if source and source in seen_images:
+            image.decompose()
+        elif source:
+            seen_images.add(source)
+    t = str(parsed)
     if not re.search(r"<meta\s+name=['\"]description['\"]", t, re.I):
         t = t.replace("</head>", '<meta name="description" content="' + E(short) + '"></head>')
     if not re.search(r"<meta\s+name=['\"]robots['\"]", t, re.I):
