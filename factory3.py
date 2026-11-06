@@ -145,21 +145,56 @@ def browser_menu_items(url):
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
             try:
-                page = browser.new_page(viewport={"width": 1280, "height": 900})
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                context = browser.new_context(
+                    viewport={"width": 1280, "height": 900},
+                    ignore_https_errors=True,
+                    user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
+                )
+                page = context.new_page()
+                response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 try:
-                    page.wait_for_selector("a[href*='/product/'], [class*='product']", timeout=10000)
+                    page.wait_for_selector("a[href*='/product/']", timeout=12000)
                 except Exception:
-                    page.wait_for_timeout(1500)
+                    page.wait_for_timeout(2000)
                 document = page.content()
                 items = menu_text(document) or product_items_from_html(document)
                 if not items:
+                    cards = page.locator("a[href*='/product/']").evaluate_all(
+                        """els => els.map(a => {
+                            const card = a.closest('[class*="product"]') || a.parentElement || a;
+                            return (card.innerText || a.innerText || '').trim();
+                        })"""
+                    )
+                    extracted, seen = [], set()
+                    price_pattern = re.compile(r"\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*", re.I)
+                    for card_text in cards:
+                        lines = [" ".join(line.split()) for line in str(card_text).splitlines() if line.strip()]
+                        price = ""
+                        name = ""
+                        for line in lines:
+                            match = price_pattern.search(line)
+                            if match and not price:
+                                price = match.group(0).strip()
+                                candidate = line[:match.start()].strip()
+                                if candidate and len(re.findall(r"[A-Za-z]", candidate)) >= 3:
+                                    name = candidate
+                            elif not name and len(line) >= 3 and len(re.findall(r"[A-Za-z]", line)) >= 3 and not BAD.match(line):
+                                name = line
+                        if name and name.lower() not in seen:
+                            seen.add(name.lower())
+                            extracted.append({"section": "", "name": name, "desc": "", "price": price})
+                    items = extracted[:24]
+                if not items:
                     items = menu_text(page.locator("body").inner_text())
+                status = response.status if response else "no-response"
+                print(f"Square menu browser: status={status}, product_links={page.locator('a[href*=\"/product/\"]').count()}, extracted={len(items)}")
                 return items[:24]
             finally:
                 browser.close()
-    except Exception:
+    except Exception as exc:
+        print(f"Square menu browser extraction unavailable: {str(exc)[:240]}")
         return []
+
 
 
 def get_menu(soup, base):
