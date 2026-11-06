@@ -50,6 +50,22 @@ def build3(d):
         template_file = "premium.html"
         template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
     t = open(template_path, encoding="utf-8").read()
+    if template_file != "premium.html":
+        source_soup = BeautifulSoup(t, "html.parser")
+        for badge in source_soup.select(".pillar-badge"):
+            badge.clear()
+            label = source_soup.new_tag("span")
+            label.string = "{{EYEBROW}}"
+            badge.append(label)
+        unsupported = re.compile(r"\b(?:michelin|award[- ]winning|36[- ]hour|stone[- ]ground|100%\s*(?:plant[- ]based|gluten[- ]free)|organic(?:\s+\w+){0,2}|vegan(?:\s+\w+){0,2}|gluten[- ]free|certified\s+angus|breton cider|walk[- ]ins|fresh.{0,30}daily|daily.{0,20}(?:baked|roasted|fresh)|seasonal harvests|time[- ]honored recipes)\b", re.I)
+        for node in list(source_soup.find_all(string=True)):
+            if node.parent and node.parent.name in {"script", "style"}:
+                continue
+            value = str(node)
+            if unsupported.search(value):
+                replacement = "Contact the business to confirm current availability." if re.search(r"walk[- ]ins", value, re.I) else "Explore the menu and discover the business's offerings."
+                node.replace_with(replacement)
+        t = str(source_soup)
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
