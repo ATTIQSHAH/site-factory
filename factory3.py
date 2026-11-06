@@ -79,10 +79,10 @@ def menu_text(h):
             items.append({"section": section, "name": clean, "price": price, "desc": ""})
 
     def price_only(value):
-        return bool(re.fullmatch(r"\$\s?\d+(?:\.\d{2})?", value.strip()))
+        return bool(re.fullmatch(r"\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*", value.strip(), re.I))
 
     for index, line in enumerate(lines):
-        price_match = re.search(r"(\$\s?\d+(?:\.\d{2})?(?:\s*/\s*\$\s?\d+(?:\.\d{2})?)?)$", line)
+        price_match = re.search(r"(\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*)$", line, re.I)
         if price_only(line):
             if pending:
                 add(pending, re.sub(r"\s+", "", line))
@@ -92,9 +92,11 @@ def menu_text(h):
             name = line[:price_match.start()].strip()
             prices = re.findall(r"\$\s?\d+(?:\.\d{2})?", price_match.group(1))
             if name:
-                add(name, " / ".join(re.sub(r"\s+", "", price) for price in prices[:2]))
+                separator = " - " if re.search(r"\s*[-–]\s*\$", price_match.group(1)) else " / "
+                add(name, separator.join(re.sub(r"\s+", "", price) for price in prices[:2]))
             elif pending:
-                add(pending, " / ".join(re.sub(r"\s+", "", price) for price in prices[:2]))
+                separator = " - " if re.search(r"\s*[-–]\s*\$", price_match.group(1)) else " / "
+                add(pending, separator.join(re.sub(r"\s+", "", price) for price in prices[:2]))
                 pending = None
             continue
         next_is_price = index + 1 < len(lines) and price_only(lines[index + 1])
