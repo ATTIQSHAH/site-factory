@@ -54,6 +54,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_VISUAL_MODEL: nvidia/nemotron-3.5-super-vl:free
           OPENROUTER_VISUAL_FALLBACK_MODEL: google/gemma-4-26b-a4b-it:free
+          OPENROUTER_VISUAL_TERTIARY_MODEL: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
           AI_DESIGN: ${{ vars.AI_DESIGN }}
           BASE_URL: ""
           RESULTS: results/fluff-demo-results.csv
