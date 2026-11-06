@@ -111,8 +111,8 @@ def build3(d):
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    if not re.search(r'<meta\\s+name=["\\']description["\\']', t, re.I):
-        t = t.replace("</head>", '<meta name="description" content="' + E(short) + '></head>')
-    if not re.search(r'<meta\\s+name=["\\']robots["\\']', t, re.I):
+    if not re.search(r"<meta\s+name=['\"]description['\"]", t, re.I):
+        t = t.replace("</head>", '<meta name="description" content="' + E(short) + '"></head>')
+    if not re.search(r"<meta\s+name=['\"]robots['\"]", t, re.I):
         t = t.replace("</head>", '<meta name="robots" content="noindex,nofollow"></head>')
-    assert not re.search(r"\\{\\{\\w+\\}\\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
+    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
