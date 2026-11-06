@@ -141,7 +141,7 @@ def main():
         "browser_checks": checks,
         "visual_review": visual_review,
         "passed": quality["passed"] and browser_passed and
-                  data_checks["has_menu_or_order_path"] and data_checks["has_click_to_call"] and data_checks["has_street_address"] and
+                  data_checks["has_menu_or_order_path"] and data_checks["has_opening_hours"] and\n                  data_checks["has_click_to_call"] and data_checks["has_street_address"] and
                   visual_review["status"] == "passed",
     }
     (report_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
