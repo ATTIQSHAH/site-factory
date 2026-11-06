@@ -62,5 +62,13 @@ class SiteQualityTests(unittest.TestCase):
         self.assertTrue(result["passed"])
 
 
+    def test_wrong_business_heading_is_blocking(self):
+        html = BASE.format("Fresh pastries and cakes. " * 20).replace(
+            "<h1>Fluff Bake Bar</h1>", "<h1>Another Restaurant</h1>")
+        result = assess_html(html, business_name="Fluff Bake Bar", phone="(713) 522-1900")
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("does not exactly match" in issue for issue in result["issues"]))
+
+
 if __name__ == "__main__":
     unittest.main()

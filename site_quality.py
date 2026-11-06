@@ -29,8 +29,11 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         fail(12, "missing mobile viewport")
     if require_noindex and (not robots or "noindex" not in robots.get("content", "").lower()):
         fail(12, "missing noindex directive")
-    if not soup.find("h1"):
-        fail(12, "missing primary heading")
+    primary_heading = soup.find("h1")
+    if not primary_heading:
+        fail(12, "missing primary heading", True)
+    elif business_name and primary_heading.get_text(" ", strip=True).casefold() != business_name.casefold():
+        fail(18, "primary heading does not exactly match the target business", True)
     if len(visible) < 250:
         fail(20, "page contains too little readable content")
     if business_name and business_name.lower() not in visible:
