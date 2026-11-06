@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 
 import artdir
 from site_quality import assess_html
+from menu_verification import menu_links, verify_menu_destination
 
 
 def main():
@@ -96,12 +97,18 @@ def main():
     tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
     quality = assess_html(html, business, tel)
     menu_count = len(soup.select(".menu-card, .menu .it"))
+    menu_candidates = menu_links(html, args.source_website or "")
+    menu_destination_checks = [verify_menu_destination(url) for url in menu_candidates[:5]]
+    has_verified_menu_destination = any(item["verified"] for item in menu_destination_checks)
+    has_verified_menu = menu_count >= 3 or has_verified_menu_destination
     hours_count = len(soup.select("table.hours tr, .hours-list tr, .hours tr"))
     visible = soup.get_text(" ", strip=True)
     has_address = bool(re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way)\b", visible, re.I))
     data_checks = {
         "menu_card_count": menu_count,
         "has_menu_or_order_path": quality.get("has_menu_path", False),
+        "verified_menu_destination": has_verified_menu_destination,
+        "menu_destination_checks": menu_destination_checks,
         "hours_row_count": hours_count,
         "has_opening_hours": hours_count > 0,
         "has_street_address": has_address,
@@ -144,7 +151,7 @@ def main():
         "browser_checks": checks,
         "visual_review": visual_review,
         "passed": quality["passed"] and browser_passed and
-                  data_checks["has_menu_or_order_path"] and data_checks["has_opening_hours"] and
+                  data_checks["has_menu_or_order_path"] and has_verified_menu and data_checks["has_opening_hours"] and
                   data_checks["has_click_to_call"] and data_checks["has_street_address"] and
                   visual_review["status"] == "passed",
     }
