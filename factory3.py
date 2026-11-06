@@ -113,13 +113,15 @@ def photos_of(soup, base, folder):
     return out
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
-    biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.get_text(" ", strip=True) if soup.title else "").split("|")[0].strip()
+    structured = [item for item in (ld(soup) or []) if isinstance(item, dict)]
+    biz = max(structured, key=lambda item: sum(bool(item.get(key)) for key in ("address", "openingHours", "telephone", "logo")), default={})
+    os.makedirs(f"{folder}/img", exist_ok=True)
+    name = r.get("Name") or biz.get("name") or (soup.title.get_text(" ", strip=True) if soup.title else "").split("|")[0].strip()
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
     about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
     headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])]
     schema_types = []
-    for node in ld(soup) or []:
+    for node in structured:
         value = node.get("@type", [])
         schema_types.extend(value if isinstance(value, list) else [value])
     addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
@@ -149,7 +151,7 @@ def process(r, folder):
             ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "niche": niche_kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
     elif os.getenv("AI_DESIGN") == "1" and artdir.KEY:
