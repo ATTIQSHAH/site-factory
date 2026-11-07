@@ -65,9 +65,10 @@ jobs:
           ONLY_WEBSITE: https://fluffbakebar.com/
           MAX_PER_RUN: "1"
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_VISUAL_MODEL: nvidia/nemotron-3.5-super-vl:free
-          OPENROUTER_VISUAL_FALLBACK_MODEL: google/gemma-4-26b-a4b-it:free
-          OPENROUTER_VISUAL_TERTIARY_MODEL: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+          OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
+          OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
+          OPENROUTER_VISUAL_TERTIARY_MODEL: google/gemma-4-26b-a4b-it:free
+          OPENROUTER_VISUAL_QUATERNARY_MODEL: nvidia/nemotron-3.5-super-vl:free
           AI_DESIGN: "0"
           BASE_URL: ""
           RESULTS: results/fluff-demo-results.csv
@@ -77,9 +78,10 @@ jobs:
         run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_VISUAL_MODEL: nvidia/nemotron-3.5-super-vl:free
-          OPENROUTER_VISUAL_FALLBACK_MODEL: google/gemma-4-26b-a4b-it:free
-          OPENROUTER_VISUAL_TERTIARY_MODEL: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+          OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
+          OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
+          OPENROUTER_VISUAL_TERTIARY_MODEL: google/gemma-4-26b-a4b-it:free
+          OPENROUTER_VISUAL_QUATERNARY_MODEL: nvidia/nemotron-3.5-super-vl:free
 
       - name: Upload generated demo and review evidence
         if: always()
