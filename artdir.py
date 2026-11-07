@@ -96,6 +96,44 @@ def qa(root, slug, min_text=250):
             b.close()
     finally: s.shutdown()
     return issues, shots
+def _parse_visual_review(answer):
+    """Parse a strict JSON object, tolerating harmless provider wrappers."""
+    if isinstance(answer, list):
+        answer = "".join(
+            part.get("text", "") for part in answer
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        )
+    if not isinstance(answer, str) or not answer.strip():
+        raise ValueError("Provider returned no text content")
+    cleaned = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip(), flags=re.I)
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Some free vision endpoints wrap JSON in prose. Extract the first
+        # complete object without accepting partial/truncated responses.
+        decoder = json.JSONDecoder()
+        result = None
+        for offset, char in enumerate(cleaned):
+            if char == "{":
+                try:
+                    result, _ = decoder.raw_decode(cleaned[offset:])
+                    break
+                except json.JSONDecodeError:
+                    continue
+        if result is None:
+            raise ValueError("Provider response did not contain a complete JSON object")
+    if not isinstance(result, dict) or "score" not in result:
+        raise ValueError("Visual review JSON must contain a score")
+    score = float(result["score"])
+    if not 1 <= score <= 10:
+        raise ValueError(f"Visual score outside 1-10 range: {score}")
+    fixes = result.get("fixes", [])
+    if not isinstance(fixes, list):
+        raise ValueError("Visual review fixes must be a JSON list")
+    fixes = [str(item).strip() for item in fixes if str(item).strip()]
+    return {"score": score, "fixes": fixes[:5]}
+
+
 def critique(shots, name):
     """Review mobile and desktop screenshots through OpenRouter's vision API."""
     key = os.getenv("OPENROUTER_API_KEY", "")
@@ -105,58 +143,61 @@ def critique(shots, name):
     fallback = os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "google/gemma-4-26b-a4b-it:free")
     tertiary = os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")
     prompt = (
-        f"You are a ruthless senior art director reviewing a website demo for {name}, "
-        "which will be pitched to the business owner. Image 1 is mobile and image 2 is desktop. "
-        "Score 1-10 for distinctive non-template design, polish and spacing, image crops and quality, "
-        "text contrast, and visual hierarchy. Penalise generic, cheap, empty, cluttered, or broken layouts. "
-        'Return only JSON with this shape: {"score": number, "fixes": ["up to 5 specific concrete fixes"]}.'
+        f"Review this website demo for {name}. Image 1 is mobile; image 2 is desktop. "
+        "Judge visual polish, distinctive design, spacing, image crops, text contrast and hierarchy. "
+        "Score from 1 (poor) to 10 (excellent). List at most 5 concrete fixes. "
+        'Return one JSON object only: {"score": 8, "fixes": ["specific fix"]}.'
     )
     content = [{"type": "text", "text": prompt}]
     for shot in shots:
         encoded = base64.b64encode(shot).decode("ascii")
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
     errors = []
+    # A short retry handles transient free-provider throttling. Every model
+    # remains a separate fallback, and an unavailable review still fails closed.
     for model in dict.fromkeys([primary, fallback, tertiary]):
-        try:
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": content}],
+                        "response_format": {"type": "json_object"},
+                        "temperature": 0,
+                        "max_tokens": 500,
+                    },
+                    timeout=120,
+                )
+                if response.status_code in (408, 425, 429) or response.status_code >= 500:
+                    detail = f"HTTP {response.status_code}: {response.text[:140]}"
+                    if attempt == 0:
+                        try:
+                            retry_after = float(response.headers.get("Retry-After", ""))
+                        except (TypeError, ValueError):
+                            retry_after = 2
+                        time.sleep(min(max(retry_after, 2), 8))
+                        continue
+                    errors.append(f"{model}: {detail}")
+                    break
+                response.raise_for_status()
+                payload = response.json()
+                choices = payload.get("choices") or []
+                message = choices[0].get("message") if choices else None
+                answer = message.get("content") if isinstance(message, dict) else None
+                if not answer and isinstance(message, dict) and message.get("reasoning"):
+                    raise ValueError("Provider returned reasoning but no review JSON")
+                result = _parse_visual_review(answer)
+                return {
+                    **result,
+                    "provider": "openrouter",
                     "model": model,
-                    "messages": [{"role": "user", "content": content}],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.1,
-                    "max_tokens": 1200,
-                },
-                timeout=120,
-            )
-            if response.status_code == 429 or response.status_code >= 500:
-                errors.append(f"{model}: HTTP {response.status_code}: {response.text[:180]}")
-                continue
-            response.raise_for_status()
-            payload = response.json()
-            choices = payload.get("choices") or []
-            message = choices[0].get("message") if choices else None
-            answer = message.get("content") if isinstance(message, dict) else None
-            if isinstance(answer, list):
-                answer = "".join(part.get("text", "") for part in answer if isinstance(part, dict) and part.get("text"))
-            if not isinstance(answer, str) or not answer.strip():
-                reasoning = message.get("reasoning") if isinstance(message, dict) else None
-                detail = f"; reasoning was returned ({str(reasoning)[:100]})" if reasoning else ""
-                raise ValueError("Provider returned no text content" + detail)
-            answer = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip())
-            result = json.loads(answer)
-            score = float(result["score"])
-            if not 1 <= score <= 10:
-                raise ValueError(f"Visual score outside 1-10 range: {score}")
-            fixes = result.get("fixes", [])
-            if not isinstance(fixes, list):
-                raise ValueError("Visual review fixes must be a JSON list")
-            return {"score": score, "fixes": fixes[:5], "provider": "openrouter", "model": model}
-        except Exception as exc:
-            errors.append(f"{model}: {str(exc)[:180]}")
+                }
+            except Exception as exc:
+                errors.append(f"{model}: {str(exc)[:180]}")
+                break
     raise RuntimeError("All OpenRouter visual-review models failed: " + " | ".join(errors))
-
 
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
