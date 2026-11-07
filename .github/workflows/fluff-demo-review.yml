@@ -33,6 +33,10 @@ on:
       - "leads/input.csv"
   workflow_dispatch:
 
+concurrency:
+  group: fluff-demo-review-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
