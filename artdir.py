@@ -135,27 +135,37 @@ def _parse_visual_review(answer):
 
 
 def critique(shots, name):
-    """Review mobile and desktop screenshots through OpenRouter's vision API."""
+    """Review mobile and desktop screenshots through resilient OpenRouter vision fallbacks."""
     key = os.getenv("OPENROUTER_API_KEY", "")
     if not key:
         raise RuntimeError("OPENROUTER_API_KEY is not configured; visual review cannot run")
-    primary = os.getenv("OPENROUTER_VISUAL_MODEL", "nvidia/nemotron-3.5-super-vl:free")
-    fallback = os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "google/gemma-4-26b-a4b-it:free")
-    tertiary = os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")
+
+    # Prefer vision models that return ordinary text reliably. Keep model IDs
+    # configurable so providers can be changed without editing application code.
+    models = [
+        os.getenv("OPENROUTER_VISUAL_MODEL", "google/gemma-4-31b-it:free"),
+        os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "dots-studio/dots-3-note-preview:free"),
+        os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "google/gemma-4-26b-a4b-it:free"),
+        os.getenv("OPENROUTER_VISUAL_QUATERNARY_MODEL", "nvidia/nemotron-3.5-super-vl:free"),
+        os.getenv("OPENROUTER_VISUAL_ROUTER_MODEL", "openrouter/free"),
+    ]
     prompt = (
         f"Review this website demo for {name}. Image 1 is mobile; image 2 is desktop. "
-        "Judge visual polish, distinctive design, spacing, image crops, text contrast and hierarchy. "
-        "Score from 1 (poor) to 10 (excellent). List at most 5 concrete fixes. "
-        'Return one JSON object only: {"score": 8, "fixes": ["specific fix"]}.'
+        "Evaluate visual polish, distinctiveness, spacing, image crops, text contrast, "
+        "typography hierarchy, navigation and calls to action. Score from 1 (poor) "
+        "to 10 (excellent). List at most 5 concrete, visible fixes. Do not infer "
+        "problems that are not visible. Return exactly one JSON object with numeric "
+        'score and a fixes array, for example: {"score": 8, "fixes": ["Improve hero crop"]}.'
     )
-    content = [{"type": "text", "text": prompt}]
+    parts = [{"type": "text", "text": prompt}]
     for shot in shots:
         encoded = base64.b64encode(shot).decode("ascii")
-        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
+        parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
+
     errors = []
-    # A short retry handles transient free-provider throttling. Every model
-    # remains a separate fallback, and an unavailable review still fails closed.
-    for model in dict.fromkeys([primary, fallback, tertiary]):
+    for model in dict.fromkeys(models):
+        # Rate-limited providers are skipped immediately; retrying the same
+        # free endpoint burns time and does not help the other available models.
         for attempt in range(2):
             try:
                 response = requests.post(
@@ -163,40 +173,63 @@ def critique(shots, name):
                     headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                     json={
                         "model": model,
-                        "messages": [{"role": "user", "content": content}],
-                        "response_format": {"type": "json_object"},
+                        "messages": [{"role": "user", "content": parts}],
                         "temperature": 0,
-                        "max_tokens": 500,
+                        "max_tokens": 700,
                     },
                     timeout=120,
                 )
-                if response.status_code in (408, 425, 429) or response.status_code >= 500:
-                    detail = f"HTTP {response.status_code}: {response.text[:140]}"
+                if response.status_code == 429:
+                    errors.append(f"{model}: HTTP 429 rate limited")
+                    break
+                if response.status_code in (408, 425) or response.status_code >= 500:
+                    detail = f"HTTP {response.status_code}: {response.text[:180]}"
                     if attempt == 0:
+                        headers = getattr(response, "headers", {}) or {}
                         try:
-                            retry_after = float(response.headers.get("Retry-After", ""))
+                            retry_after = float(headers.get("Retry-After", ""))
                         except (TypeError, ValueError):
                             retry_after = 2
-                        time.sleep(min(max(retry_after, 2), 8))
+                        time.sleep(min(max(retry_after, 1), 5))
                         continue
                     errors.append(f"{model}: {detail}")
                     break
+
                 response.raise_for_status()
                 payload = response.json()
                 choices = payload.get("choices") or []
                 message = choices[0].get("message") if choices else None
-                answer = message.get("content") if isinstance(message, dict) else None
-                if not answer and isinstance(message, dict) and message.get("reasoning"):
-                    raise ValueError("Provider returned reasoning but no review JSON")
-                result = _parse_visual_review(answer)
+                if not isinstance(message, dict):
+                    raise ValueError("Provider returned no assistant message")
+
+                answer = message.get("content")
+                # Some reasoning-first vision models put the final answer in
+                # reasoning instead of content. Accept it only if it contains
+                # a complete, schema-valid review object.
+                candidates = [answer, message.get("reasoning")]
+                parsed = None
+                parse_errors = []
+                for candidate in candidates:
+                    if candidate:
+                        try:
+                            parsed = _parse_visual_review(candidate)
+                            break
+                        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                            parse_errors.append(str(exc))
+                if parsed is None:
+                    raise ValueError(
+                        "No valid review JSON in model output"
+                        + (": " + "; ".join(parse_errors[:2]) if parse_errors else "")
+                    )
                 return {
-                    **result,
+                    **parsed,
                     "provider": "openrouter",
                     "model": model,
                 }
             except Exception as exc:
-                errors.append(f"{model}: {str(exc)[:180]}")
+                errors.append(f"{model}: {str(exc)[:220]}")
                 break
+
     raise RuntimeError("All OpenRouter visual-review models failed: " + " | ".join(errors))
 
 def make_site(d, root, slug, direction, fallback):
