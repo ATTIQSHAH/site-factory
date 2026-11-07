@@ -1,4 +1,6 @@
 import hashlib, html, os, re, urllib.parse as up
+from template_catalog import select as _catalogue_select
+from bs4 import BeautifulSoup
 E = html.escape
 PAL = {"cream": ("#f6f1e9", "#ece4d6", "#2a1f17", "#6d5f52", "#8a5a2b", "rgba(42,31,23,.14)"), "espresso": ("#171210", "#211a16", "#f3ebe0", "#b8a999", "#c8a26b", "rgba(255,255,255,.12)"),
  "sage": ("#eef0ea", "#e1e6dc", "#1d2a22", "#55635a", "#3f6b4f", "rgba(29,42,34,.14)"), "noir": ("#0e0e0f", "#17171a", "#f5f1ea", "#b9b2a6", "#d6a85c", "rgba(255,255,255,.12)"),
@@ -15,6 +17,25 @@ def safe_acc(acc, bg, ink):
     t = 0
     while cr(acc, bg) < 4.5 and t < 1: t += .1; acc = mix(acc, ink, t)
     return acc
+def select_template(kind, name="", about="", menu=None):
+    """Select a handcrafted template from the matching niche family."""
+    return _catalogue_select(kind, name=name, about=about, menu=menu)
+
+
+def logo_markup(logo, brand, background):
+    """Add a contrast plate only when the logo tone clashes with its background."""
+    if not logo:
+        return E(brand or "")
+    path, tone = logo
+    style = ""
+    if tone == "light" and lum(background) >= 0.5:
+        style = "background:#171210;padding:6px 10px;border-radius:8px"
+    elif tone == "dark" and lum(background) < 0.5:
+        style = "background:#ffffff;padding:6px 10px;border-radius:8px"
+    attrs = ' class="logo-contrast" style="' + style + '"' if style else ""
+    return '<img src="' + E(path) + '" alt="' + E(brand or "") + '"' + attrs + '>'
+
+
 def niche(n):
     n = n.lower()
     if re.search(r"coffee|cafe|café|roast|espresso", n): return "coffee", "coffee shop"
@@ -23,7 +44,28 @@ def niche(n):
     return "restaurant", "restaurant interior"
 def build3(d):
     """d keys: name, slug, phone, email, address, city, hours(list of (day,time)), about, logo(file,tone), photos(list of rel paths), video, poster, menu(list), menu_url, order_url, ig, fb, web, kind"""
-    t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "premium.html"), encoding="utf-8").read()
+    template_file, template_meta = select_template(d.get("niche", d["kind"]), name=d["name"], about=d.get("about", ""), menu=d.get("menu"))
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+    if not os.path.isfile(template_path):
+        template_file = "premium.html"
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", template_file)
+    t = open(template_path, encoding="utf-8").read()
+    if template_file != "premium.html":
+        source_soup = BeautifulSoup(t, "html.parser")
+        for badge in source_soup.select(".pillar-badge"):
+            badge.clear()
+            label = source_soup.new_tag("span")
+            label.string = "{{EYEBROW}}"
+            badge.append(label)
+        unsupported = re.compile(r"\b(?:michelin|award[- ]winning|36[- ]hour|stone[- ]ground|100%\s*(?:plant[- ]based|gluten[- ]free)|organic(?:\s+\w+){0,2}|vegan(?:\s+\w+){0,2}|gluten[- ]free|certified\s+angus|breton cider|walk[- ]ins|fresh.{0,30}daily|daily.{0,20}(?:baked|roasted|fresh)|seasonal harvests|seasonal ingredients|every morning|fresh batch|daily bake|locally sourced|locally grown|house[- ]made|hand[- ]made|handcrafted|family[- ]owned|family recipes|time[- ]honored recipes)\b", re.I)
+        for node in list(source_soup.find_all(string=True)):
+            if node.parent and node.parent.name in {"script", "style"}:
+                continue
+            value = str(node)
+            if unsupported.search(value):
+                replacement = "Contact the business to confirm current availability." if re.search(r"walk[- ]ins", value, re.I) else "Explore the menu and discover the business's offerings."
+                node.replace_with(replacement)
+        t = str(source_soup)
     seed = int(hashlib.md5(d["slug"].encode()).hexdigest()[:8], 16); th = THEMES[d["kind"]][seed % 3]; bg, bg2, ink, mut, acc, line = PAL[th]
     acc = safe_acc(acc, bg, ink); accink = "#111111" if cr(acc, "#111111") >= cr(acc, "#ffffff") else "#ffffff"
     f = FONTS[(seed // 3) % 4]; ph = d["photos"]; hero = ["full", "split", "type"][(seed // 12) % 3]
@@ -43,18 +85,21 @@ def build3(d):
             while len(w) > 6 and w[-1].lower().strip(",") in {"and", "with", "or", "of", "the", "a", "an", "to", "in", "for", "by", "as", "&", "at", "on"}: w = w[:-1]
             ab = " ".join(w).rstrip(" ,;:-") + "."
     m = re.match(r"(.{40,150}?[.!?])(\s|$)", ab); short = m.group(1) if m else (ab if len(ab) <= 150 else ab[:150].rsplit(" ", 1)[0])
+    if not short.strip(): short = "Find the details you need to plan your visit or get in touch."
     rest = ab[len(short):].strip() if ab.startswith(short) else ab
     rest = rest if len(rest) >= 40 else ""
+    story_text = rest if len(rest) >= 80 else (ab if len(ab) >= 80 else "")
     fi = [x for x in [("Find us", d["address"]) if d["address"] else None, ("Call", d["phone"]) if d["phone"] else None, ("Open", d["hours"][0][0] + " " + d["hours"][0][1]) if d["hours"] else None] if x]
-    show_story = bool(rest or fi); para = f'<p class="lead">{E(rest)}</p>' if rest else ""
+    show_story = bool(story_text or fi); para = f'<p class="lead">{E(story_text)}</p>' if story_text else ""
     secs = [("story", "About")] if show_story else []
-    has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if len(ph) >= 4 else []; secs += [("visit", "Visit")]
-    lg = f'<img src="{E(d["logo"][0])}" alt="{n}" class="{"pill" if d["logo"][1] == "light" else "pillw"}">' if d.get("logo") else n
+    has_menu = bool(d["menu"] or d.get("menu_url")); secs += [("menu", "Menu")] if has_menu else []; secs += [("gallery", "Gallery")] if hero != "type" and len(ph) >= 5 else []; secs += [("visit", "Visit")]
+    lg = logo_markup(d.get("logo"), d["name"], bg)
     chips = "".join(f'<span class="chip">{E(c)}</span>' for c in [d.get("city"), d["hours"][0][0] + " " + d["hours"][0][1] if d["hours"] else None] if c)
     story = menu = gal = ""
     if show_story:
         facts = "".join(f'<div class="fact"><b>{E(a)}</b><span>{E(b)}</span></div>' for a, b in fi)
-        img = f'<div class="imgf rv"><img src="{E(ph[1] if len(ph) > 1 else ph[0])}" alt="{n}"></div>' if ph else ""
+        story_photo = ph[4] if hero == "type" and len(ph) > 4 else (ph[1] if hero != "type" and len(ph) > 1 else None)
+        img = f'<div class="imgf rv"><img src="{E(story_photo)}" alt="{n}"></div>' if story_photo else ""
         story = f'<section id="story"><div class="wrap two {"flip" if seed % 2 else ""}"><div class="rv"><span class="eyebrow">About</span><h2>{"Our story" if rest else "The essentials"}</h2>{para}<div class="facts">{facts}</div></div>{img}</div></section>'
     if d["menu"]:
         out, cur = "", None
@@ -67,7 +112,7 @@ def build3(d):
     elif d.get("menu_url"):
         bgi = f"style=\"background-image:url('{E(ph[-1])}')\"" if ph else ""; nc = "" if ph else " nophoto"
         menu = f'<section class="alt" id="menu"><div class="wrap"><div class="rv"><span class="eyebrow">Menu</span><h2>See what is cooking</h2></div><div class="mcta rv{nc}" {bgi}>{"" if ph else "<p class=lead style=position:relative;z-index:2;margin:0 0 18px>Full menu and prices are on their website.</p>"}<a class="btn p" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></div></div></section>'
-    if len(ph) >= 4: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[:4]) + "</div></div></section>"
+    if hero != "type" and len(ph) >= 5: gal = '<section id="gallery"><div class="wrap"><div class="rv"><span class="eyebrow">Gallery</span><h2>A closer look</h2></div><div class="gal rv">' + "".join(f'<img src="{E(p)}" alt="" loading="lazy">' for p in ph[2:6]) + "</div></div></section>"
     hrs = "".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td></tr>" for a, b in d["hours"])
     left = (f'<p class="lead">{E(d["address"])}</p>' if d["address"] else "") + (f'<table class="hours">{hrs}</table>' if hrs else "") + f'<a class="btn p" href="tel:{tel}">Call now</a>' + (f'<a class="btn s" href="{dirn}" target="_blank" rel="noopener">Get directions</a>' if d["address"] else "") + (f'<a class="btn s" href="mailto:{E(d["email"])}">Email</a>' if d["email"] else "")
     right = f'<iframe class="map rv" loading="lazy" src="https://www.google.com/maps?q={q}&output=embed"></iframe>' if d["address"] else ""
@@ -75,9 +120,107 @@ def build3(d):
     order = f'<div class="band"><div class="wrap"><h2>Order ahead</h2><a class="btn" href="{E(d["order_url"])}" target="_blank" rel="noopener">Order online</a></div></div>' if d.get("order_url") else ""
     soc = "".join(f'<a href="{E(u)}" target="_blank" rel="noopener">{l}</a>' for l, u in [("Instagram", d.get("ig")), ("Facebook", d.get("fb"))] if u)
     vid = f'<video autoplay muted loop playsinline poster="{E(d.get("poster") or "")}"><source src="{E(d["video"])}" type="video/mp4"></video>' if d.get("video") and hero == "full" else ""
+    if template_file != "premium.html":
+        facts_html = "".join(f'<div class="fact"><b>{E(label)}</b><span>{E(value)}</span></div>' for label, value in fi)
+        story = (f'<p class="story-copy">{E(story_text)}</p>' if story_text else "") + (f'<div class="facts">{facts_html}</div>' if facts_html else "")
+        if d["menu"]:
+            menu_groups = {}
+            for item in d["menu"]:
+                item_name = (item.get("name") or "").lower()
+                supplied_section = (item.get("section") or "").strip()
+                if supplied_section:
+                    category = supplied_section
+                elif any(word in item_name for word in ("tart", "pie")):
+                    category = "Pies & Tarts"
+                elif any(word in item_name for word in ("cake", "smash")):
+                    category = "Cakes & Celebrations"
+                elif any(word in item_name for word in ("cookie", "brownie", "gingersnap")):
+                    category = "Cookies & Brownies"
+                elif any(word in item_name for word in ("americano", "cappuccino", "cappucino", "chai", "latte", "coffee", "tea")):
+                    category = "Coffee & Drinks"
+                else:
+                    category = "Bakery Favorites"
+                price = f'<span class="menu-item-price-tag">{E(item.get("price") or "")}</span>' if item.get("price") else ""
+                desc = f'<p class="menu-item-details">{E(item.get("desc") or "")}</p>' if item.get("desc") else ""
+                card = f'<article class="menu-card"><div class="menu-card-top"><span class="menu-item-title">{E(item["name"])}</span>{price}</div>{desc}</article>'
+                menu_groups.setdefault(category, []).append(card)
+            grouped_menu = []
+            for category, cards in menu_groups.items():
+                grouped_menu.append(f'<section class="menu-group"><h3 class="menu-group-title">{E(category)}</h3><div class="menu-layout">{"".join(cards)}</div></section>')
+            menu = '<div class="menu-groups">' + "".join(grouped_menu) + '</div>'
+            if d.get("menu_url"):
+                menu += f'<p><a class="btn-main" href="{E(d["menu_url"])}" target="_blank" rel="noopener">View the full menu</a></p>'
+        elif d.get("menu_url") or d.get("order_url"):
+            menu_target = d.get("menu_url") or d.get("order_url")
+            menu_label = "View the full menu" if d.get("menu_url") else "Order online"
+            menu = f'<p><a class="btn-main" href="{E(menu_target)}" target="_blank" rel="noopener">{menu_label}</a></p>'
+        else:
+            menu = ""
+        gallery_photos = ph[2:6] if hero != "type" and len(ph) >= 5 else []
+        gal = '<div class="gallery-showcase">' + "".join(f'<div class="gallery-item"><img src="{E(photo)}" alt="{n} gallery image" loading="lazy"></div>' for photo in gallery_photos) + '</div>' if gallery_photos else ""
+        visit_address = f'<p class="visit-address">{E(d["address"])}</p>' if d.get("address") else ""
+        visit_hours = f'<table class="hours-list"><tbody>{hrs}</tbody></table>' if hrs else ""
+        visit = visit_address + visit_hours
     rep = {"NAME": n, "FONTLINK": "https://fonts.googleapis.com/css2?family=" + f[2] + "&display=swap", "BG": bg, "BG2": bg2, "INK": ink, "MUT": mut, "ACC": acc, "ACCINK": accink, "LINE": line, "DISP": f[0], "BODY": f[1], "RAD": ["999px", "6px", "0"][seed % 3],
            "HERO": hero, "LOGO": lg, "NAV": "".join(f'<li><a href="#{a}">{b}</a></li>' for a, b in secs), "TEL": tel, "PHONE": E(d["phone"] or ""), "HEROIMG": E(ph[0]) if ph else "", "VIDEO": vid, "EYEBROW": E(" · ".join(x for x in [d["kind"].title() if d["kind"] != "grill" else "Kitchen", d.get("city")] if x)),
            "ABOUT_SHORT": E(short), "CTA1": "menu" if has_menu else "visit", "CTA1T": "See the menu" if has_menu else "Visit us", "CHIPS": chips,
            "STRIP": "".join(f'<img src="{E(p)}" alt="">' for p in ph[1:4]) if hero == "type" else "", "STORY": story, "MENU": menu, "GALLERY": gal, "VISIT": visit, "ORDER": order, "SOCIALS": soc, "DIR": dirn}
+    story_photo_src = ph[4] if hero == "type" and len(ph) > 4 else (ph[1] if hero != "type" and len(ph) > 1 else "")
+    story_photo_markup = f'<div class="story-photo-frame"><img src="{E(story_photo_src)}" alt="{n}"></div>' if story_photo_src else '<div class="story-photo-frame" aria-hidden="true"></div>'
+    hero_note = ""  # Avoid a generic placeholder panel; let the real business photography carry the hero.
+    menu_intro = "Menu details from the business's published information." if d["menu"] or d.get("menu_url") or d.get("order_url") else "Contact the business for current menu information."
+    map_frame = (f'<div class="map-frame map-card"><span class="map-card-kicker">Find us</span><div><h3>Make your way to {n}</h3><p class="map-card-address">{E(d["address"])}</p></div><a class="btn-main" href="{dirn}" target="_blank" rel="noopener">Open in Google Maps</a></div>' if d.get("address") else "")
+    rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
-    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero}
+    parsed = BeautifulSoup(t, "html.parser")
+    ids = {node.get("id") for node in parsed.find_all(id=True)}
+    for anchor in parsed.find_all("a", href=True):
+        if anchor.get("href") == "#story" and "story" not in ids and "about" in ids:
+            anchor["href"] = "#about"
+    seen_images = set()
+    for image in parsed.find_all("img"):
+        source = (image.get("src") or "").strip()
+        if not source or source in seen_images:
+            image.decompose()
+        else:
+            seen_images.add(source)
+    for link in parsed.select('a[href^="tel:"]'):
+        if not link.get("href", "").replace("tel:", "").strip():
+            link.decompose()
+    description = parsed.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    if description is None:
+        description = parsed.new_tag("meta", attrs={"name": "description"})
+        parsed.head.append(description)
+    description_content = str(description.get("content", "")).strip()
+    if len(description_content) < 60:
+        description_content = short
+    description.attrs = {"name": "description", "content": description_content}
+    robots = parsed.find("meta", attrs={"name": re.compile("^robots$", re.I)})
+    if robots is None:
+        robots = parsed.new_tag("meta")
+        parsed.head.append(robots)
+    robots.attrs = {"name": "robots", "content": str(robots.get("content", "noindex,nofollow")) if "noindex" in str(robots.get("content", "")).lower() else "noindex,nofollow"}
+    viewport = parsed.find("meta", attrs={"name": re.compile("^viewport$", re.I)})
+    if viewport is None:
+        viewport = parsed.new_tag("meta")
+        parsed.head.append(viewport)
+    viewport.attrs = {"name": "viewport", "content": str(viewport.get("content", "width=device-width, initial-scale=1"))}
+    t = str(parsed)
+    responsive_css = """<style id="site-factory-layout-guard">
+html,body{max-width:100%;overflow-x:hidden}
+img,iframe,video{max-width:100%}
+.hero,.bento-hero-left,.bento-hero-right,.bento-img-frame,.story-card-grid,.visit-hub,.menu-layout,.gallery-showcase,.map-frame{min-width:0;max-width:100%}
+.hero>*,.story-card-grid>*,.visit-hub>*,.bento-hero-right>*,.menu-layout>*,.gallery-showcase>*{min-width:0}
+@media(max-width:480px){.menu-layout,.gallery-showcase{grid-template-columns:minmax(0,1fr)!important}.menu-card{min-width:0}}
+@media(max-width:768px){.m:not(.quickbar-visible){display:none!important}.m.quickbar-visible{display:flex!important}}
+</style>"""
+    t = t.replace("</head>", responsive_css + "</head>")
+    def ordered_meta(match):
+        tag = match.group(0)
+        name_match = re.search(r'\bname="([^"]+)"', tag, re.I)
+        content_match = re.search(r'\bcontent="([^"]*)"', tag, re.I)
+        return '<meta name="' + name_match.group(1) + '" content="' + (content_match.group(1) if content_match else '') + '">'
+    t = re.sub(r'<meta\b[^>]*\bname="(?:description|robots)"[^>]*>', ordered_meta, t, flags=re.I)
+    quickbar_script = """<script>(function(){var bar=document.querySelector('.m'),hero=document.querySelector('.hero');if(!bar||!hero||!window.IntersectionObserver)return;var observer=new IntersectionObserver(function(entries){bar.classList.toggle('quickbar-visible',!entries[0].isIntersecting);},{threshold:0});observer.observe(hero);})();</script>"""
+    t = t.replace("</body>", quickbar_script + "</body>")
+    assert not re.search(r"\{\{\w+\}\}", t); return t, {"theme": th, "hero": hero, "template_file": template_file, "template_id": template_meta.get("id", template_file[:-5]), "template_status": "selected" if template_file != "premium.html" else "fallback"}
