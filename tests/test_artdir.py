@@ -49,20 +49,20 @@ class GeminiPayloadTests(unittest.TestCase):
 
         env = {
             "OPENROUTER_API_KEY": "test-openrouter-key",
-            "OPENROUTER_VISUAL_MODEL": "nvidia/nemotron-3.5-super-vl:free",
-            "OPENROUTER_VISUAL_FALLBACK_MODEL": "google/gemma-4-26b-a4b-it:free",
+            "OPENROUTER_VISUAL_MODEL": "google/gemma-4-31b-it:free",
+            "OPENROUTER_VISUAL_FALLBACK_MODEL": "dots-studio/dots-3-note-preview:free",
         }
         with patch.dict("os.environ", env, clear=False):
             result = artdir.critique([b"fake-image"], "Fluff Bake Bar")
 
         self.assertEqual(result["score"], 8.5)
         self.assertEqual(result["provider"], "openrouter")
-        self.assertEqual(result["model"], "google/gemma-4-26b-a4b-it:free")
+        self.assertEqual(result["model"], "dots-studio/dots-3-note-preview:free")
         self.assertEqual(result["fixes"], ["Improve hero crop"])
         first_body = post.call_args_list[0].kwargs["json"]
         second_body = post.call_args_list[1].kwargs["json"]
-        self.assertEqual(first_body["model"], "nvidia/nemotron-3.5-super-vl:free")
-        self.assertEqual(second_body["model"], "google/gemma-4-26b-a4b-it:free")
+        self.assertEqual(first_body["model"], "google/gemma-4-31b-it:free")
+        self.assertEqual(second_body["model"], "dots-studio/dots-3-note-preview:free")
         image_part = second_body["messages"][0]["content"][1]
         self.assertEqual(image_part["type"], "image_url")
         self.assertTrue(image_part["image_url"]["url"].startswith("data:image/jpeg;base64,"))
@@ -81,14 +81,14 @@ class GeminiPayloadTests(unittest.TestCase):
         post.side_effect = [empty, success]
         env = {
             "OPENROUTER_API_KEY": "test-openrouter-key",
-            "OPENROUTER_VISUAL_MODEL": "nvidia/nemotron-3.5-super-vl:free",
-            "OPENROUTER_VISUAL_FALLBACK_MODEL": "google/gemma-4-26b-a4b-it:free",
-            "OPENROUTER_VISUAL_TERTIARY_MODEL": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+            "OPENROUTER_VISUAL_MODEL": "google/gemma-4-31b-it:free",
+            "OPENROUTER_VISUAL_FALLBACK_MODEL": "dots-studio/dots-3-note-preview:free",
+            "OPENROUTER_VISUAL_TERTIARY_MODEL": "google/gemma-4-26b-a4b-it:free",
         }
         with patch.dict("os.environ", env, clear=False):
             result = artdir.critique([b"fake-image"], "Fluff Bake Bar")
         self.assertEqual(result["score"], 9)
-        self.assertEqual(result["model"], "google/gemma-4-26b-a4b-it:free")
+        self.assertEqual(result["model"], "dots-studio/dots-3-note-preview:free")
         self.assertEqual(post.call_count, 2)
 
 
