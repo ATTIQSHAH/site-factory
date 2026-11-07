@@ -15,7 +15,7 @@ on:
       - "templates/**"
       - "review_site.py"
       - ".github/workflows/fluff-demo-review.yml"
-      - "leads/input.csv"
+      - "leads/fluff-demo.csv"
   pull_request:
     branches: [main]
     paths:
@@ -30,7 +30,7 @@ on:
       - "templates/**"
       - "review_site.py"
       - ".github/workflows/fluff-demo-review.yml"
-      - "leads/input.csv"
+      - "leads/fluff-demo.csv"
   workflow_dispatch:
 
 concurrency:
@@ -64,7 +64,7 @@ jobs:
         run: rm -rf sites/fluff-bake-bar review/fluff-bake-bar results/fluff-demo-results.csv
 
       - name: Generate only Fluff Bake Bar
-        run: python factory3.py leads/input.csv
+        run: python factory3.py leads/fluff-demo.csv
         env:
           ONLY_WEBSITE: https://fluffbakebar.com/
           MAX_PER_RUN: "1"
