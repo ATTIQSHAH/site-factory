@@ -192,7 +192,49 @@ a { color: inherit; }
       .menu-groups { gap: 1.75rem; }
       .menu-group-title { font-size: 1.45rem; }
     }
-    </style>
+    
+    /* Production fallback art direction: stronger contrast, tighter rhythm, deliberate bakery editorial layout. */
+    .section-intro,.menu-item-details,.nav-menu a { color: var(--ink); }
+    .menu-item-details { opacity: .88; }
+    .menu-item-price-tag { color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .65rem; font-size: .95rem; }
+    .section-tag { color: var(--ink); letter-spacing: .14em; }
+    .section-title { font-size: clamp(2.35rem, 4.4vw, 4rem); line-height: 1.04; }
+    .section-header { margin-bottom: clamp(1.75rem, 3vw, 2.5rem); }
+    section { padding: clamp(3.25rem, 5vw, 4.75rem) clamp(1rem, 3vw, 2rem); }
+    .hero { grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr); gap: clamp(1rem, 2vw, 1.5rem); }
+    .bento-hero-left { min-height: 380px; }
+    .bento-hero-right { min-height: 380px; grid-template-rows: minmax(380px, 1fr); }
+    .bento-img-frame { min-height: 380px; }
+    .bento-img-frame img { object-position: center 50%; }
+    .story-card-grid { padding: clamp(1.5rem, 3vw, 2.75rem); gap: clamp(1.5rem, 3vw, 3rem); }
+    .menu-layout { gap: .85rem; }
+    .menu-card { background: var(--bg); border-color: var(--line); box-shadow: 0 8px 24px rgba(35,25,18,.045); }
+    .menu-item-title { font-size: clamp(1.1rem, 1.5vw, 1.35rem); line-height: 1.22; }
+    .menu-group { margin-bottom: .5rem; }
+    .menu-group-title { font-size: clamp(1.6rem, 2.5vw, 2.25rem); margin-bottom: 1.1rem; }
+    .visit-hub { padding: clamp(1.5rem, 3vw, 2.75rem); gap: clamp(1.5rem, 3vw, 2.75rem); }
+    .btn-main,.nav-cta { background: var(--acc); color: var(--accink); box-shadow: 0 5px 0 color-mix(in srgb, var(--ink) 16%, transparent); }
+    .btn-main:focus-visible,.btn-alt:focus-visible,.nav-cta:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+    .map-card { min-height: 320px; }
+    @media(max-width:900px) {
+      .hero { grid-template-columns: 1fr; }
+      .bento-hero-left { min-height: 0; }
+      .bento-hero-right { min-height: 0; grid-template-rows: minmax(280px, 65vw); }
+      .bento-img-frame { min-height: 280px; }
+    }
+    @media(max-width:600px) {
+      section { padding: 3rem 1rem; }
+      .hero { padding: 1.25rem 1rem .75rem; }
+      .bento-hero-right { grid-template-rows: minmax(250px, 78vw); }
+      .bento-img-frame { min-height: 250px; }
+      .menu-layout { grid-template-columns: minmax(0,1fr); }
+      .menu-card { padding: 1.15rem; }
+      .story-card-grid { padding: 1.2rem; }
+      .visit-hub { padding: 1.2rem; }
+      .map-card { min-height: 230px; }
+    }
+
+</style>
 </head>
 <body class="hero-{{HERO}} theme-cafe_05_copenhagen_bakery pillar-cafe">
 
@@ -239,7 +281,7 @@ a { color: inherit; }
 <!-- Story Section -->
 <section id="about" class="rv">
     <div class="section-header">
-        <span class="section-tag">Authentic Craft</span>
+        <span class="section-tag">A little about</span>
         <h2 class="section-title">About {{NAME}}</h2>
         
     </div>
@@ -252,7 +294,7 @@ a { color: inherit; }
 <!-- Menu Section -->
 <section id="menu" class="rv">
     <div class="section-header">
-        <span class="section-tag">Curated Offerings</span>
+        <span class="section-tag">On the menu</span>
         <h2 class="section-title">Menu at {{NAME}}</h2>
         <p class="section-intro">{{MENU_INTRO}}</p>
     </div>
@@ -264,9 +306,9 @@ a { color: inherit; }
 <!-- Gallery Section -->
 <section id="gallery" class="rv">
     <div class="section-header">
-        <span class="section-tag">Ambiance</span>
+        <span class="section-tag">Gallery</span>
         <h2 class="section-title">A Look Inside</h2>
-        <p class="section-intro">Photos from {{NAME}}.</p>
+        <p class="section-intro">A closer look at {{NAME}}.</p>
     </div>
     <div class="gallery-container">
         {{GALLERY}}
@@ -276,7 +318,7 @@ a { color: inherit; }
 <!-- Visit / Hours Section -->
 <section id="visit" class="rv">
     <div class="section-header">
-        <span class="section-tag">Join Us</span>
+        <span class="section-tag">Find us</span>
         <h2 class="section-title">Hours & Location</h2>
         <p class="section-intro">Contact and location details.</p>
     </div>
