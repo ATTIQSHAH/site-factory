@@ -137,8 +137,6 @@ def _parse_visual_review(answer):
 def critique(shots, name):
     """Review mobile and desktop screenshots through resilient OpenRouter vision fallbacks."""
     key = os.getenv("OPENROUTER_API_KEY", "")
-    if not key:
-        raise RuntimeError("OPENROUTER_API_KEY is not configured; visual review cannot run")
 
     # Prefer vision models that return ordinary text reliably. Keep model IDs
     # configurable so providers can be changed without editing application code.
@@ -163,73 +161,76 @@ def critique(shots, name):
         parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
 
     errors = []
-    for model in dict.fromkeys(models):
-        # Rate-limited providers are skipped immediately; retrying the same
-        # free endpoint burns time and does not help the other available models.
-        for attempt in range(2):
-            try:
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": parts}],
-                        "temperature": 0,
-                        "max_tokens": 700,
-                    },
-                    timeout=120,
-                )
-                if response.status_code == 429:
-                    errors.append(f"{model}: HTTP 429 rate limited")
-                    break
-                if response.status_code in (408, 425) or response.status_code >= 500:
-                    detail = f"HTTP {response.status_code}: {response.text[:180]}"
-                    if attempt == 0:
-                        headers = getattr(response, "headers", {}) or {}
-                        try:
-                            retry_after = float(headers.get("Retry-After", ""))
-                        except (TypeError, ValueError):
-                            retry_after = 2
-                        time.sleep(min(max(retry_after, 1), 5))
-                        continue
-                    errors.append(f"{model}: {detail}")
-                    break
-
-                response.raise_for_status()
-                payload = response.json()
-                choices = payload.get("choices") or []
-                message = choices[0].get("message") if choices else None
-                if not isinstance(message, dict):
-                    raise ValueError("Provider returned no assistant message")
-
-                answer = message.get("content")
-                # Some reasoning-first vision models put the final answer in
-                # reasoning instead of content. Accept it only if it contains
-                # a complete, schema-valid review object.
-                candidates = [answer, message.get("reasoning")]
-                parsed = None
-                parse_errors = []
-                for candidate in candidates:
-                    if candidate:
-                        try:
-                            parsed = _parse_visual_review(candidate)
-                            break
-                        except (TypeError, ValueError, json.JSONDecodeError) as exc:
-                            parse_errors.append(str(exc))
-                if parsed is None:
-                    raise ValueError(
-                        "No valid review JSON in model output"
-                        + (": " + "; ".join(parse_errors[:2]) if parse_errors else "")
+    if key:
+        for model in dict.fromkeys(models):
+            # Rate-limited providers are skipped immediately; retrying the same
+            # free endpoint burns time and does not help the other available models.
+            for attempt in range(2):
+                try:
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": parts}],
+                            "temperature": 0,
+                            "max_tokens": 700,
+                        },
+                        timeout=120,
                     )
-                return {
-                    **parsed,
-                    "provider": "openrouter",
-                    "model": model,
-                }
-            except Exception as exc:
-                errors.append(f"{model}: {str(exc)[:220]}")
-                break
-
+                    if response.status_code == 429:
+                        errors.append(f"{model}: HTTP 429 rate limited")
+                        break
+                    if response.status_code in (408, 425) or response.status_code >= 500:
+                        detail = f"HTTP {response.status_code}: {response.text[:180]}"
+                        if attempt == 0:
+                            headers = getattr(response, "headers", {}) or {}
+                            try:
+                                retry_after = float(headers.get("Retry-After", ""))
+                            except (TypeError, ValueError):
+                                retry_after = 2
+                            time.sleep(min(max(retry_after, 1), 5))
+                            continue
+                        errors.append(f"{model}: {detail}")
+                        break
+    
+                    response.raise_for_status()
+                    payload = response.json()
+                    choices = payload.get("choices") or []
+                    message = choices[0].get("message") if choices else None
+                    if not isinstance(message, dict):
+                        raise ValueError("Provider returned no assistant message")
+    
+                    answer = message.get("content")
+                    # Some reasoning-first vision models put the final answer in
+                    # reasoning instead of content. Accept it only if it contains
+                    # a complete, schema-valid review object.
+                    candidates = [answer, message.get("reasoning")]
+                    parsed = None
+                    parse_errors = []
+                    for candidate in candidates:
+                        if candidate:
+                            try:
+                                parsed = _parse_visual_review(candidate)
+                                break
+                            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                                parse_errors.append(str(exc))
+                    if parsed is None:
+                        raise ValueError(
+                            "No valid review JSON in model output"
+                            + (": " + "; ".join(parse_errors[:2]) if parse_errors else "")
+                        )
+                    return {
+                        **parsed,
+                        "provider": "openrouter",
+                        "model": model,
+                    }
+                except Exception as exc:
+                    errors.append(f"{model}: {str(exc)[:220]}")
+                    break
+    
+    else:
+        errors.append("OpenRouter: API key not configured; trying Gemini fallback")
     # If all OpenRouter endpoints are unavailable (common with shared free-tier
     # quotas), use the already-configured Gemini API as a secondary reviewer.
     # This remains a real visual review; deterministic checks are never bypassed.
