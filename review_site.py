@@ -117,7 +117,7 @@ def main():
     }
 
     visual_review = {"status": "unavailable", "score": 0, "fixes": []}
-    if os.getenv("OPENROUTER_API_KEY") and all(label in screenshots for label in ("mobile", "desktop")):
+    if (os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")) and all(label in screenshots for label in ("mobile", "desktop")):
         try:
             images = []
             for label in ("mobile", "desktop"):
