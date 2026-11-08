@@ -83,6 +83,8 @@ jobs:
       - name: Capture mobile and desktop screenshots and run quality checks
         run: python review_site.py --site sites/fluff-bake-bar --report-dir review/fluff-bake-bar --business "Fluff Bake Bar" --phone "(713) 522-1900" --source-website https://fluffbakebar.com/
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_VISUAL_MODEL: gemini-3.8-flash
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
           OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
