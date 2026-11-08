@@ -2,7 +2,7 @@ name: Fluff Bake Bar isolated demo review
 
 on:
   push:
-    branches: [production-hardening]
+    branches: [production-hardening, production-rebuild]
     paths:
       - "factory3.py"
       - "business_intel.py"
