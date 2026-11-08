@@ -2,7 +2,7 @@ import json, os, re, requests
 from bs4 import BeautifulSoup
 
 PSI, GEM = os.getenv("PAGESPEED_KEY", ""), os.getenv("GEMINI_API_KEY", "")
-GEM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")  # verify current free-tier model name
+GEM_MODEL = os.getenv("GEMINI_MODEL") or os.getenv("GEMINI_DESIGN_MODEL") or "gemini-3.8-flash"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; SolvexaDemoBot/1.0)"}
 def get(u):
     r = requests.get(u, headers=UA, timeout=20); r.raise_for_status(); return r
@@ -19,6 +19,7 @@ def ai_about(name, facts):
     try:
         p = f"Write a warm 2-sentence About blurb for {name}. Use ONLY these facts, invent nothing: {facts}. Return plain text."
         r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEM_MODEL}:generateContent?key={GEM}", json={"contents": [{"parts": [{"text": p}]}]}, timeout=30)
+        r.raise_for_status()
         return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception: return facts
 def audit(url, html):

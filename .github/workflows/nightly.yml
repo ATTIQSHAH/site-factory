@@ -21,6 +21,11 @@ jobs:
           PAGESPEED_KEY: ${{ secrets.PAGESPEED_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
+          OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
+          OPENROUTER_VISUAL_TERTIARY_MODEL: google/gemma-4-26b-a4b-it:free
+          OPENROUTER_VISUAL_QUATERNARY_MODEL: nvidia/nemotron-3.5-super-vl:free
           AI_DESIGN: ${{ vars.AI_DESIGN }}
           BASE_URL: ${{ vars.BASE_URL }}
           MAX_PER_RUN: ${{ github.event.inputs.max || '15' }}
@@ -29,6 +34,11 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
+          OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
+          OPENROUTER_VISUAL_TERTIARY_MODEL: google/gemma-4-26b-a4b-it:free
+          OPENROUTER_VISUAL_QUATERNARY_MODEL: nvidia/nemotron-3.5-super-vl:free
       - name: Upload demo review evidence
         if: always()
         uses: actions/upload-artifact@v4

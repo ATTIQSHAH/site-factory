@@ -1,62 +1,326 @@
 """v3: lead CSV -> real extraction (photos, logo, menu incl. AI reading, address, hours) -> themed premium site -> audit -> results CSV."""
-import csv, os, re, sys, time
-from urllib.parse import urljoin
+import csv, json, os, re, sys, time
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 import media, artdir, library
 from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
+from business_intel import classify_business
 from render3 import build3, niche
 OUT, RES = os.getenv("SITES_DIR", "sites"), os.getenv("RESULTS", "results/websites_tab.csv")
 BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN", "30"))
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
 DAY = r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*"
+
+def about_from_soup(soup):
+    """Extract a source-authored business paragraph while rejecting contact details."""
+    candidates = []
+    for paragraph in soup.find_all("p"):
+        value = " ".join(paragraph.get_text(" ", strip=True).split())
+        if len(value) < 70 or len(value) > 700:
+            continue
+        if re.search(r"@|\b(?:tel|phone|call|address|directions)\b|\+?\d[\d(). -]{7,}", value, re.I):
+            continue
+        if re.search(r"\b\d{1,6}\s+\w+\s+(?:street|st|road|rd|avenue|ave|boulevard|blvd)\b", value, re.I):
+            continue
+        candidates.append(value)
+    return max(candidates, key=len, default="")
+
+
+def select_test_rows(rows, only_website="", limit=30):
+    """Test/demo lead selector: exact URL matching, fail closed, always bounded."""
+    candidates = [row for row in rows if row.get("Website")]
+    if only_website:
+        target = only_website.strip().rstrip("/").lower()
+        matches = [row for row in candidates if row["Website"].strip().rstrip("/").lower() == target]
+        if len(matches) != 1:
+            raise ValueError(f"Target website must match exactly one row; found {len(matches)}")
+        candidates = matches
+    return candidates[:max(0, int(limit))]
+
+
+def suppress_ambiguous_menu_prices(items):
+    """Drop price claims when extraction repeats one price across most products."""
+    rows = [dict(item) for item in (items or [])]
+    prices = [str(row.get("price", "")).strip() for row in rows if str(row.get("price", "")).strip()]
+    if len(prices) >= 3:
+        counts = Counter(prices)
+        value, count = counts.most_common(1)[0]
+        if value and count >= 3 and count / len(prices) >= 0.6:
+            for row in rows:
+                if str(row.get("price", "")).strip():
+                    row["price"] = ""
+    return rows
+
+
+def select_leads(rows, only_website="", done=None):
+    """Select exact target URL when requested; normal runs skip completed leads."""
+    completed = done if done is not None else {}
+    candidates = [row for row in rows if row.get("Website")]
+    if only_website:
+        target = only_website.strip().rstrip("/").lower()
+        matches = [row for row in candidates if row["Website"].strip().rstrip("/").lower() == target]
+        if len(matches) != 1:
+            raise ValueError(f"ONLY_WEBSITE must match exactly one lead; found {len(matches)} for {only_website}")
+        completed.pop(matches[0]["Website"], None)
+        return matches
+    return [row for row in candidates if row["Website"] not in completed]
 def menu_text(h):
-    s = BeautifulSoup(h, "html.parser")
-    for t in s(["script", "style", "nav", "footer", "header"]): t.decompose()
-    items, cur, seen = [], "", set()
-    for l in [x.strip() for x in s.get_text("\n").split("\n") if x.strip()]:
-        m = re.search(r"(\$\s?\d+(?:\.\d{2})?[\s|/$\d.]*)$", l)
-        if m:
-            nm = l[:m.start()].strip(" .-–·$|"); pr = " / ".join(re.sub(r"\s", "", p) for p in re.findall(r"\$\s?\d+(?:\.\d{2})?", m.group(1))[:2])
-            if 3 <= len(nm) <= 60 and len(re.findall(r"[A-Za-z]", nm)) >= 3 and "$" not in nm and not BAD.match(nm) and nm.lower() not in seen: seen.add(nm.lower()); items.append({"section": cur, "name": nm, "price": pr, "desc": ""})
-        elif 2 < len(l) < 30 and not re.search(r"\d|@|http", l): cur = l.title()
-        elif items and not items[-1]["desc"] and 15 < len(l) < 160 and "$" not in l: items[-1]["desc"] = l
+    soup = BeautifulSoup(h, "html.parser")
+    for node in soup(["script", "style", "nav", "footer", "header"]): node.decompose()
+    lines = [line.strip() for line in soup.get_text("\n").split("\n") if line.strip()]
+    items, section, pending, seen = [], "", None, set()
+
+    def add(name, price):
+        clean = re.sub(r"\s+", " ", name).strip(" .-–·$|")
+        if 3 <= len(clean) <= 60 and len(re.findall(r"[A-Za-z]", clean)) >= 3 and not BAD.match(clean) and clean.lower() not in seen:
+            seen.add(clean.lower())
+            items.append({"section": section, "name": clean, "price": price, "desc": ""})
+
+    def price_only(value):
+        return bool(re.fullmatch(r"\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*", value.strip(), re.I))
+
+    for index, line in enumerate(lines):
+        price_match = re.search(r"(\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*)$", line, re.I)
+        if price_only(line):
+            if pending:
+                add(pending, re.sub(r"\s+", "", line))
+                pending = None
+            continue
+        if price_match:
+            name = line[:price_match.start()].strip()
+            prices = re.findall(r"\$\s?\d+(?:\.\d{2})?", price_match.group(1))
+            if name:
+                separator = " - " if re.search(r"\s*[-–]\s*\$", price_match.group(1)) else " / "
+                add(name, separator.join(re.sub(r"\s+", "", price) for price in prices[:2]))
+            elif pending:
+                separator = " - " if re.search(r"\s*[-–]\s*\$", price_match.group(1)) else " / "
+                add(pending, separator.join(re.sub(r"\s+", "", price) for price in prices[:2]))
+                pending = None
+            continue
+        next_is_price = index + 1 < len(lines) and price_only(lines[index + 1])
+        if next_is_price and 3 <= len(line) <= 60:
+            pending = line
+            continue
+        if pending and len(line) > 20 and not re.search(r"[$\d@]|https?://", line):
+            pending = None
+        if not items and not pending and len(line) <= 30 and not re.search(r"[$\d@]|https?://", line):
+            section = line.title()
+        elif not pending and len(line) <= 60 and not re.search(r"[$\d@]|https?://", line):
+            pending = line
     return items[:24] if len(items) >= 5 else []
+
+
+def product_items_from_html(document):
+    soup = BeautifulSoup(document or "", "html.parser")
+    found = []
+    def visit(node):
+        if isinstance(node, list):
+            for child in node: visit(child)
+        elif isinstance(node, dict):
+            kind = node.get("@type", [])
+            kinds = kind if isinstance(kind, list) else [kind]
+            if any(str(value).lower() == "product" for value in kinds):
+                name = str(node.get("name") or "").strip()
+                if name:
+                    offers = node.get("offers") or {}
+                    if isinstance(offers, list): offers = offers[0] if offers else {}
+                    price = str(offers.get("price") or "").strip() if isinstance(offers, dict) else ""
+                    currency = str(offers.get("priceCurrency") or "").strip() if isinstance(offers, dict) else ""
+                    if price:
+                        price = (currency + " " + price).strip()
+                    if name.islower(): name = name.title()
+                    found.append({"section": "", "name": name, "desc": str(node.get("description") or ""), "price": price})
+            if "@graph" in node: visit(node["@graph"])
+    for script in soup.find_all("script", type="application/ld+json"):
+        try: visit(json.loads(script.string or script.get_text() or ""))
+        except Exception: continue
+    return found
+
+def browser_menu_items(url):
+    """Render JavaScript storefronts (notably Square Online) when plain HTTP has no product data."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            try:
+                context = browser.new_context(
+                    viewport={"width": 1280, "height": 900},
+                    ignore_https_errors=True,
+                    user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
+                )
+                page = context.new_page()
+                response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                try:
+                    page.wait_for_selector("a[href*='/product/']", timeout=12000)
+                except Exception:
+                    page.wait_for_timeout(2000)
+                document = page.content()
+                items = menu_text(document) or product_items_from_html(document)
+                if not items:
+                    cards = page.locator("a[href*='/product/']").evaluate_all(
+                        """els => els.map(a => {
+                            const card = a.closest('[class*="product"]') || a.parentElement || a;
+                            return (card.innerText || a.innerText || '').trim();
+                        })"""
+                    )
+                    extracted, seen = [], set()
+                    price_pattern = re.compile(r"\$\s?\d+(?:\.\d{2})?(?:\s*(?:-|–|to|/)\s*\$\s?\d+(?:\.\d{2})?)*", re.I)
+                    for card_text in cards:
+                        lines = [" ".join(line.split()) for line in str(card_text).splitlines() if line.strip()]
+                        price = ""
+                        name = ""
+                        for line in lines:
+                            match = price_pattern.search(line)
+                            if match and not price:
+                                price = match.group(0).strip()
+                                candidate = line[:match.start()].strip()
+                                if candidate and len(re.findall(r"[A-Za-z]", candidate)) >= 3:
+                                    name = candidate
+                            elif not name and len(line) >= 3 and len(re.findall(r"[A-Za-z]", line)) >= 3 and not BAD.match(line):
+                                name = line
+                        if name and name.lower() not in seen:
+                            seen.add(name.lower())
+                            extracted.append({"section": "", "name": name, "desc": "", "price": price})
+                    items = extracted[:24]
+                if not items:
+                    items = menu_text(page.locator("body").inner_text())
+                status = response.status if response else "no-response"
+                product_link_count = page.locator("a[href*='/product/']").count()
+                print(f"Square menu browser: status={status}, product_links={product_link_count}, extracted={len(items)}")
+                return items[:24]
+            finally:
+                browser.close()
+    except Exception as exc:
+        print(f"Square menu browser extraction unavailable: {str(exc)[:240]}")
+        return []
+
+
+
 def get_menu(soup, base):
-    link = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"menu", a["href"] + a.get_text(), re.I) and not a["href"].lower().endswith(".pdf") and "order" not in a.get_text().lower()), None)
-    pages, items, src = [soup], [], "none"
+    candidates = []
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"].strip()
+        label = anchor.get_text(" ", strip=True)
+        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")) or href.lower().endswith(".pdf"):
+            continue
+        signal = (href + " " + label).lower()
+        if not re.search(r"menu|order|shop|store|product|online|toast|square|chownow|doordash|ubereats", signal):
+            continue
+        score = (5 if "menu" in signal else 0) + (4 if re.search(r"shop|store|product", signal) else 0) + (3 if re.search(r"order|online|toast|square|chownow|doordash|ubereats", signal) else 0)
+        candidates.append((score, urljoin(base, href)))
+    link = max(candidates, default=(0, None), key=lambda item: item[0])[1]
     if link:
-        try: r = get(link); items = menu_text(r.text); pages.append(BeautifulSoup(r.text, "html.parser"))
-        except Exception: pass
-        src = "text" if items else "link"
+        parsed_link = urlparse(link)
+        if parsed_link.netloc.lower().endswith("square.site") and parsed_link.path in ("", "/"):
+            link = urljoin(link, "/s/shop")
+    items = product_items_from_html(str(soup))
+    pages, src = [soup], "structured_data" if items else "none"
+    if link:
+        try:
+            response = get(link)
+            if getattr(response, "status_code", 200) >= 400:
+                link = None
+            else:
+                text_items = menu_text(response.text)
+                schema_items = product_items_from_html(response.text)
+                if text_items:
+                    items, src = text_items, "text"
+                elif schema_items:
+                    items, src = schema_items, "structured_data"
+                pages.append(BeautifulSoup(response.text, "html.parser"))
+        except Exception:
+            link = None
+        if not items and link and urlparse(link).netloc.lower().endswith("square.site"):
+            rendered_items = browser_menu_items(link)
+            if rendered_items:
+                items, src = rendered_items, "browser"
+        if not items and link:
+            src = "link"
     if not items:
-        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for p in pages for a in p.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
-        imgs = list(dict.fromkeys(urljoin(base, i.get("src")) for p in pages for i in p.find_all("img") if i.get("src") and re.search(r"menu", i["src"] + (i.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", i["src"], re.I)))
-        for u, mime in [(x, "application/pdf") for x in pdfs[:2]] + [(x, "image/jpeg") for x in imgs[:2]]:
-            data, ct = media.dl(u); items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (ct.split(";")[0] or mime))
-            if len(items) >= 5: src = "ai"; link = link or u; break
+        pdfs = list(dict.fromkeys(urljoin(base, a["href"]) for page in pages for a in page.find_all("a", href=True) if a["href"].lower().split("?")[0].endswith(".pdf") and "menu" in a["href"].lower()))
+        imgs = list(dict.fromkeys(urljoin(base, image.get("src")) for page in pages for image in page.find_all("img") if image.get("src") and re.search(r"menu", image["src"] + (image.get("alt") or ""), re.I) and re.search(r"\.(jpe?g|png|webp)", image["src"], re.I)))
+        for url, mime in [(value, "application/pdf") for value in pdfs[:2]] + [(value, "image/jpeg") for value in imgs[:2]]:
+            data, content_type = media.dl(url)
+            items = media.gemini_menu(data, "application/pdf" if mime == "application/pdf" else (content_type.split(";")[0] or mime))
+            if len(items) >= 5:
+                src = "ai"
+                link = link or url
+                break
             items = []
-        if not items and pdfs and not link: link, src = pdfs[0], "link"
+        if not items and pdfs and not link:
+            link, src = pdfs[0], "link"
     return items, link, src
+
 def hours_of(biz, text):
-    oh = biz.get("openingHours"); oh = [oh] if isinstance(oh, str) else (oh or []); rows = []
-    for x in oh:
-        m = re.match(r"([A-Za-z,\- ]+?)\s+(\d{1,2}:\d{2}-\d{1,2}:\d{2})", x)
-        if m: rows.append((re.sub(r"\b(Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda k: {"Mo": "Mon", "Tu": "Tue", "We": "Wed", "Th": "Thu", "Fr": "Fri", "Sa": "Sat", "Su": "Sun"}[k.group(1)], m.group(1).strip()).replace("-", " to "), m.group(2).replace("-", " to ")))
-    def t12(x): return re.sub(r"\b(\d{1,2}):(\d{2})\b", lambda k: (str(int(k.group(1)) % 12 or 12) + ("" if k.group(2) == "00" else ":" + k.group(2)) + (" AM" if int(k.group(1)) < 12 else " PM")), x)
-    rows = [(a, t12(b)) for a, b in rows]
-    if rows: return rows[:7] if (len(rows) >= 3 or any(" to " in r[0] for r in rows)) else []
-    for m in re.finditer(rf"({DAY}(?:\s*(?:-|–|to|through)\s*{DAY})?)\s*[:\-]?\s*(\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?\s*(?:-|–|to)\s*\d{{1,2}}(?::\d{{2}})?\s*[ap]\.?m\.?)", text, re.I):
-        rows.append((m.group(1).strip().title(), re.sub(r"\s*(-|–)\s*", " to ", m.group(2).strip())))
-        if len(rows) == 7: break
-    rows = list(dict.fromkeys(rows))
-    return rows if len(rows) >= 3 or any(" to " in r[0] or "–" in r[0] or "-" in r[0] for r in rows) else []  # hide fragments, never show wrong hours
-def address_of(biz, text):
-    a = biz.get("address") if isinstance(biz.get("address"), dict) else {}
-    if a.get("streetAddress"): return ", ".join(str(a[x]) for x in ("streetAddress", "addressLocality", "addressRegion", "postalCode") if a.get(x)), a.get("addressLocality", "")
-    m = re.search(r"(\d{2,5}\s+[A-Za-z0-9.\s]{3,40}?\s(?:St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Pkwy|Way)\b\.?,?\s*(?:Suite|Ste|#)?\s*\w*,?\s*([A-Za-z .]+),\s*[A-Z]{2}\s*\d{5})", text)
-    return (re.sub(r"\s+", " ", m.group(1)), m.group(2).strip()) if m else ("", "")
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    short_days = {"mo": "Monday", "mon": "Monday", "tu": "Tuesday", "tue": "Tuesday", "we": "Wednesday", "wed": "Wednesday", "th": "Thursday", "thu": "Thursday", "fr": "Friday", "fri": "Friday", "sa": "Saturday", "sat": "Saturday", "su": "Sunday", "sun": "Sunday"}
+
+    def clock(value):
+        match = re.fullmatch(r"\s*(\d{1,2})(?::(\d{2}))?\s*([ap])?m?\.?\s*", value, re.I)
+        if not match: return value.strip()
+        hour, minute, suffix = int(match.group(1)), int(match.group(2) or 0), (match.group(3) or "").lower()
+        if suffix:
+            period = "AM" if suffix == "a" else "PM"
+            hour = hour % 12 or 12
+        else:
+            period = "PM" if hour >= 12 else "AM"
+            hour = hour % 12 or 12
+        return f"{hour}{':' + str(minute).zfill(2) if minute else ''} {period}"
+
+    def normalize_label(label):
+        raw = re.sub(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Mo|Tu|We|Th|Fr|Sa|Su)\b", lambda match: short_days[match.group(1).lower()], label.strip(), flags=re.I)
+        raw = re.sub(r"\s*(?:-|–|through|to)\s*", " to ", raw, flags=re.I)
+        return " ".join(raw.split())
+
+    def parse_rows(source):
+        parsed = []
+        pattern = re.compile(rf"({DAY}(?:\s*(?:-|–|to|through)\s*{DAY})?)\s*[:\-]?\s*(\d{{1,2}}(?::\d{{2}})?\s*[ap]?\.?m?\.?\s*(?:-|–|to)\s*\d{{1,2}}(?::\d{{2}})?\s*[ap]?\.?m?\.?)", re.I)
+        for match in pattern.finditer(source or ""):
+            label = normalize_label(match.group(1))
+            times = re.split(r"\s*(?:-|–|to)\s*", match.group(2), maxsplit=1, flags=re.I)
+            if len(times) != 2: continue
+            parsed.append((label, f"{clock(times[0])} to {clock(times[1])}"))
+        covered, result = set(), []
+        for label, value in parsed:
+            days = re.findall(r"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday", label, re.I)
+            days = [day.title() for day in days]
+            if len(days) >= 2 and " to " in label.lower():
+                first, last = day_names.index(days[0]), day_names.index(days[-1])
+                expanded = set(day_names[first:last + 1] if first <= last else day_names[first:] + day_names[:last + 1])
+            else:
+                expanded = set(days)
+            if expanded and expanded.intersection(covered): continue
+            covered.update(expanded)
+            result.append((label, value))
+        return result
+
+    visible = parse_rows(text)
+    if len(visible) >= 2 and (len(visible) >= 3 or any(" to " in row[0].lower() for row in visible)):
+        return visible[:7]
+    schema = biz.get("openingHours") or []
+    schema = [schema] if isinstance(schema, str) else schema
+    schema_rows = parse_rows(" ".join(str(item) for item in schema))
+    if len(schema_rows) >= 3 or any(" to " in row[0].lower() for row in schema_rows):
+        return schema_rows[:7]
+    return visible[:7] if len(visible) >= 3 else []
+
+
+def address_of(biz, text, soup=None):
+    value = biz.get("address") if isinstance(biz, dict) else None
+    if isinstance(value, dict) and value.get("streetAddress"):
+        parts = [value.get(key) for key in ("streetAddress", "addressLocality", "addressRegion", "postalCode")]
+        return ", ".join(str(part) for part in parts if part), value.get("addressLocality", "")
+    source = (soup.get_text(" ", strip=True) + " " if soup else "") + (text or "")
+    pattern = re.compile(r"(\d{1,6}\s+(?:[A-Za-z0-9.'#-]+\s+){1,8}(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Highway|Hwy|Pkwy|Way)\.?)\s*,?\s*([A-Za-z .]+?)\s*,?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)\b")
+    match = pattern.search(source)
+    if match:
+        street, city, state, postal = match.groups()
+        city = re.sub(r"\s+", " ", city).strip(" ,")
+        return f"{street.strip()}, {city}, {state} {postal}", city
+    return "", ""
+
 def photos_of(soup, base, folder):
     c = []
     for m in soup.find_all("meta", attrs={"property": re.compile("og:image|twitter:image")}): c.append(m.get("content"))
@@ -80,11 +344,22 @@ def photos_of(soup, base, folder):
     return out
 def process(r, folder):
     u = r["Website"].strip(); resp = get(u); soup = BeautifulSoup(resp.text, "html.parser"); base = resp.url; text = soup.get_text("\n")
-    biz = (ld(soup) or [{}])[0]; os.makedirs(f"{folder}/img", exist_ok=True)
-    name = r.get("Name") or (soup.title.string or "").split("|")[0].strip(); kind, q = niche(name)
+    structured = [item for item in (ld(soup) or []) if isinstance(item, dict)]
+    biz = max(structured, key=lambda item: sum(bool(item.get(key)) for key in ("address", "openingHours", "telephone", "logo")), default={})
+    os.makedirs(f"{folder}/img", exist_ok=True)
+    name = r.get("Name") or biz.get("name") or (soup.title.get_text(" ", strip=True) if soup.title else "").split("|")[0].strip()
     meta = (soup.find("meta", attrs={"property": "og:description"}) or soup.find("meta", attrs={"name": "description"}) or {}).get("content", "").strip()
-    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else ""
-    addr, city = address_of(biz, text); items, menu_url, msrc = get_menu(soup, base)
+    about = meta if len(meta) >= 60 and not re.search(r"cookie|javascript", meta, re.I) else about_from_soup(soup)
+    headings = [node.get_text(" ", strip=True) for node in soup.find_all(["h1", "h2", "h3"])]
+    schema_types = []
+    for node in structured:
+        value = node.get("@type", [])
+        schema_types.extend(value if isinstance(value, list) else [value])
+    addr, city = address_of(biz, text, soup); items, menu_url, msrc = get_menu(soup, base)
+    items = suppress_ambiguous_menu_prices(items)
+    title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    niche_kind, q, classification = classify_business(name, title, about, headings, items, schema_types)
+    kind = {"cafe": "coffee", "fastfood": "grill"}.get(niche_kind, niche_kind)
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: kind = library.classify(name, about, items, kind)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
     if not lg:
@@ -107,8 +382,12 @@ def process(r, folder):
             ph.append(f"/_stock/{kind}/{pics[(seed + n) % len(pics)]}")
         if vids and not video: video = f"/_stock/{kind}/{vids[seed % len(vids)]}"
     order = next((urljoin(base, a["href"]) for a in soup.find_all("a", href=True) if re.search(r"toasttab|doordash|ubereats|chownow|olo\.com|square\.site|clover\.com|order\.|/order", a["href"], re.I)), None)
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone", ""), "email": r.get("Email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
-         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind}
+    if order:
+        parsed_order = urlparse(order)
+        if parsed_order.netloc.lower().endswith("square.site") and parsed_order.path in ("", "/"):
+            order = urljoin(order, "/s/shop")
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
+         "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "niche": niche_kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
     elif os.getenv("AI_DESIGN") == "1" and artdir.KEY:
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
@@ -125,7 +404,8 @@ def main(src):
     for r in done.values(): r["batch"] = r.get("batch") or "1"
     USED.update(r.get("theme") for r in done.values() if r.get("theme") in artdir.DIRS)
     n_b = max([int(r["batch"]) for r in done.values()] or [0]) + 1; batch = []; used = {r.get("site_path") for r in done.values()}
-    for r in [x for x in rows if x.get("Website") and x["Website"] not in done][:int(os.getenv("MAX_PER_RUN", "30"))]:
+    candidates = select_leads(rows, os.getenv("ONLY_WEBSITE", ""), done)
+    for r in candidates[:int(os.getenv("MAX_PER_RUN", "30"))]:
         res = dict(r); name = r.get("Name") or r["Website"]; s = slug(name); k = 2; b0 = s
         while f"/{s}/" in used: s = f"{b0}-{k}"; k += 1
         used.add(f"/{s}/")

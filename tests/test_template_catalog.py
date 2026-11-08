@@ -54,6 +54,10 @@ class TemplateCatalogueTests(unittest.TestCase):
                 anchors = __import__("re").findall(r"href=['\"]#([^'\"]+)", html)
                 self.assertFalse([anchor for anchor in anchors if anchor not in ids], row['file'])
                 self.assertEqual(info['template_file'], row['file'])
+                for unsupported in ('Michelin Guide 2026', '36-Hour Fermentation', '100% Plant-Based',
+                                     '100% Certified Angus', 'Walk-ins always welcome',
+                                     'Prepared fresh daily with seasonal harvests'):
+                    self.assertNotIn(unsupported.lower(), html.lower(), row['file'])
         finally:
             render3.select_template = original_selector
 

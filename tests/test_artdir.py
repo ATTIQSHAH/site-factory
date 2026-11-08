@@ -35,32 +35,62 @@ class GeminiPayloadTests(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
 
     @patch("artdir.requests.post")
-    def test_visual_critique_uses_current_gemini_rest_field_names(self, post):
-        payload = {
-            "candidates": [{
-                "content": {
-                    "parts": [{"text": '{"score": 8, "fixes": []}'}]
-                }
-            }]
-        }
-        post.return_value = SimpleNamespace(
-            ok=True,
+    def test_visual_critique_falls_back_to_second_openrouter_vision_model(self, post):
+        rate_limited = SimpleNamespace(
+            status_code=429, text="free model rate limit",
+        )
+        success = SimpleNamespace(
             status_code=200,
             text="",
-            json=lambda: payload,
+            json=lambda: {"choices": [{"message": {"content": '{"score": 8.5, "fixes": ["Improve hero crop"]}'}}]},
+            raise_for_status=lambda: None,
         )
+        post.side_effect = [rate_limited, success]
 
-        with patch.object(artdir, "KEY", "test-key"):
+        env = {
+            "OPENROUTER_API_KEY": "test-openrouter-key",
+            "OPENROUTER_VISUAL_MODEL": "google/gemma-4-31b-it:free",
+            "OPENROUTER_VISUAL_FALLBACK_MODEL": "dots-studio/dots-3-note-preview:free",
+        }
+        with patch.dict("os.environ", env, clear=False):
             result = artdir.critique([b"fake-image"], "Fluff Bake Bar")
 
-        body = post.call_args.kwargs["json"]
-        self.assertEqual(result["score"], 8)
-        self.assertEqual(body["generationConfig"]["responseMimeType"], "application/json")
-        self.assertNotIn("response_mime_type", body["generationConfig"])
-        image_part = body["contents"][0]["parts"][1]
-        self.assertIn("inlineData", image_part)
-        self.assertEqual(image_part["inlineData"]["mimeType"], "image/jpeg")
-        self.assertNotIn("inline_data", image_part)
+        self.assertEqual(result["score"], 8.5)
+        self.assertEqual(result["provider"], "openrouter")
+        self.assertEqual(result["model"], "dots-studio/dots-3-note-preview:free")
+        self.assertEqual(result["fixes"], ["Improve hero crop"])
+        first_body = post.call_args_list[0].kwargs["json"]
+        second_body = post.call_args_list[1].kwargs["json"]
+        self.assertEqual(first_body["model"], "google/gemma-4-31b-it:free")
+        self.assertEqual(second_body["model"], "dots-studio/dots-3-note-preview:free")
+        image_part = second_body["messages"][0]["content"][1]
+        self.assertEqual(image_part["type"], "image_url")
+        self.assertTrue(image_part["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+    @patch("artdir.requests.post")
+    def test_empty_primary_vision_response_uses_fallback(self, post):
+        empty = SimpleNamespace(
+            status_code=200, text="",
+            json=lambda: {"choices": [{"message": {"content": None, "reasoning": "internal reasoning"}}]},
+            raise_for_status=lambda: None,
+        )
+        success = SimpleNamespace(
+            status_code=200, text="",
+            json=lambda: {"choices": [{"message": {"content": '{"score": 9, "fixes": []}'}}]},
+            raise_for_status=lambda: None,
+        )
+        post.side_effect = [empty, success]
+        env = {
+            "OPENROUTER_API_KEY": "test-openrouter-key",
+            "OPENROUTER_VISUAL_MODEL": "google/gemma-4-31b-it:free",
+            "OPENROUTER_VISUAL_FALLBACK_MODEL": "dots-studio/dots-3-note-preview:free",
+            "OPENROUTER_VISUAL_TERTIARY_MODEL": "google/gemma-4-26b-a4b-it:free",
+        }
+        with patch.dict("os.environ", env, clear=False):
+            result = artdir.critique([b"fake-image"], "Fluff Bake Bar")
+        self.assertEqual(result["score"], 9)
+        self.assertEqual(result["model"], "dots-studio/dots-3-note-preview:free")
+        self.assertEqual(post.call_count, 2)
+
 
 
 if __name__ == "__main__":
