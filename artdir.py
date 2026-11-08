@@ -230,7 +230,57 @@ def critique(shots, name):
                 errors.append(f"{model}: {str(exc)[:220]}")
                 break
 
-    raise RuntimeError("All OpenRouter visual-review models failed: " + " | ".join(errors))
+    # If all OpenRouter endpoints are unavailable (common with shared free-tier
+    # quotas), use the already-configured Gemini API as a secondary reviewer.
+    # This remains a real visual review; deterministic checks are never bypassed.
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    if gemini_key:
+        gemini_model = (
+            os.getenv("GEMINI_VISUAL_MODEL")
+            or os.getenv("GEMINI_DESIGN_MODEL")
+            or os.getenv("GEMINI_MODEL")
+            or MODEL
+        )
+        gemini_parts = [{"text": prompt}]
+        for shot in shots:
+            gemini_parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": base64.b64encode(shot).decode("ascii"),
+                }
+            })
+        try:
+            response = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent",
+                headers={"x-goog-api-key": gemini_key},
+                json={
+                    "contents": [{"parts": gemini_parts}],
+                    "generationConfig": {
+                        "temperature": 0,
+                        "maxOutputTokens": 700,
+                        "responseMimeType": "application/json",
+                    },
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            candidates = payload.get("candidates") or []
+            parts_out = (candidates[0].get("content") or {}).get("parts") or []
+            answer = next(
+                (part.get("text") for part in parts_out if isinstance(part.get("text"), str)),
+                "",
+            )
+            parsed = _parse_visual_review(answer)
+            return {
+                **parsed,
+                "provider": "gemini",
+                "model": gemini_model,
+            }
+        except Exception as exc:
+            errors.append(f"Gemini fallback ({gemini_model}): {str(exc)[:220]}")
+
+    raise RuntimeError("All visual-review providers failed: " + " | ".join(errors))
 
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
