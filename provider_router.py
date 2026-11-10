@@ -20,8 +20,8 @@ def _configured_candidates(task):
             ]
         else:
             models = [
-                os.getenv("OPENROUTER_DESIGN_MODEL", "google/gemma-4-31b-it:free"),
-                os.getenv("OPENROUTER_DESIGN_FALLBACK_MODEL", "openrouter/free"),
+                (os.getenv("OPENROUTER_DESIGN_MODEL") or "google/gemma-4-31b-it:free"),
+                (os.getenv("OPENROUTER_DESIGN_FALLBACK_MODEL") or "openrouter/free"),
             ]
         for model in dict.fromkeys(models):
             candidates.append({
@@ -31,7 +31,7 @@ def _configured_candidates(task):
                             "Content-Type": "application/json"},
             })
 
-    groq_model = os.getenv("GROQ_VISUAL_MODEL" if task == "visual" else "GROQ_DESIGN_MODEL", "qwen/qwen3.8-27b").strip()
+    groq_model = (os.getenv("GROQ_VISUAL_MODEL" if task == "visual" else "GROQ_DESIGN_MODEL") or "qwen/qwen3.8-27b").strip()
     if os.getenv("GROQ_API_KEY") and groq_model:
         candidates.append({
             "provider": "groq", "model": groq_model,
@@ -40,7 +40,7 @@ def _configured_candidates(task):
                         "Content-Type": "application/json"},
         })
 
-    cf_model = os.getenv("CLOUDFLARE_VISUAL_MODEL" if task == "visual" else "CLOUDFLARE_DESIGN_MODEL", "@cf/qwen/qwen3.8-27b").strip()
+    cf_model = (os.getenv("CLOUDFLARE_VISUAL_MODEL" if task == "visual" else "CLOUDFLARE_DESIGN_MODEL") or "@cf/qwen/qwen3.8-27b").strip()
     account = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
     if account and token and cf_model:
