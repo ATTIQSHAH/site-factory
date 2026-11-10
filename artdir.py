@@ -68,7 +68,10 @@ def gem(parts, system=None, js=False):
                             delay = 2 ** (attempt + 1)
                         time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
                         continue
-                response.raise_for_status()
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+                elif not getattr(response, "ok", True):
+                    raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:250]}")
                 break
             payload = response.json()
             candidates = payload.get("candidates") or []
