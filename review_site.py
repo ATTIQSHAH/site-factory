@@ -14,6 +14,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 import artdir
+import provider_router
 from site_quality import assess_html
 from menu_verification import menu_links, verify_menu_destination
 
@@ -117,7 +118,7 @@ def main():
     }
 
     visual_review = {"status": "unavailable", "score": 0, "fixes": []}
-    if (os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")) and all(label in screenshots for label in ("mobile", "desktop")):
+    if provider_router.has_credentials("visual") and all(label in screenshots for label in ("mobile", "desktop")):
         try:
             images = []
             for label in ("mobile", "desktop"):
