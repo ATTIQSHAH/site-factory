@@ -29,7 +29,7 @@ class ProviderRouterTests(unittest.TestCase):
     def test_cloudflare_uses_only_free_allowlisted_models(self):
         env = {
             "CLOUDFLARE_ACCOUNT_ID": "account-id",
-            "CLOUDFLARE_API_TOKEN": "cf-token",
+            "CLOUDFLARE_AI_API_TOKEN": "cf-token",
             "CLOUDFLARE_DESIGN_MODEL": "@cf/zai-org/glm-4.7-flash",
             "CLOUDFLARE_VISUAL_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct",
         }
@@ -53,7 +53,7 @@ class ProviderRouterTests(unittest.TestCase):
             "OPENROUTER_API_KEY": "or-key",
             "OPENROUTER_DESIGN_MODELS": "google/gemma-4-31b-it:free",
             "CLOUDFLARE_ACCOUNT_ID": "account-id",
-            "CLOUDFLARE_API_TOKEN": "cf-token",
+            "CLOUDFLARE_AI_API_TOKEN": "cf-token",
             "CLOUDFLARE_DESIGN_MODEL": "@cf/zai-org/glm-4.7-flash",
         }
         with patch.dict("os.environ", env, clear=True):
