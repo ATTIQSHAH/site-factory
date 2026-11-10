@@ -2,7 +2,7 @@
 import csv, json, os, re, sys, time
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
-import media, artdir, library
+import media, artdir, library, provider_router
 from collections import Counter
 USED = Counter()
 from common import get, ld, audit, ai_about, slug
@@ -389,7 +389,7 @@ def process(r, folder):
     d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "niche": niche_kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
-    elif os.getenv("AI_DESIGN") == "1" and artdir.KEY:
+    elif os.getenv("AI_DESIGN") == "1" and provider_router.has_credentials("design"):
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
     else: html, info = build3(d)
