@@ -78,7 +78,7 @@ def gem(parts, system=None, js=False):
             )
             if not text.strip():
                 raise RuntimeError("Gemini returned empty content")
-            return json.loads(text) if js else re.sub(r"^\x60{3}(?:html)?\\s*|\\s*\x60{3}$", "", text.strip())
+            return json.loads(text) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip())
         except Exception as exc:
             errors.append("Gemini: " + str(exc)[:220])
     else:
@@ -90,15 +90,15 @@ def gem(parts, system=None, js=False):
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
-        user_text = "\\n".join(
+        user_text = "\n".join(
             str(part.get("text", "")) for part in parts if isinstance(part, dict)
         )
         messages.append({"role": "user", "content": user_text})
         result = provider_router.chat_candidates("design", messages, max_tokens=30000, timeout=240)
         text = result["content"]
         if js:
-            return json.loads(re.sub(r"^\x60{3}(?:json)?\\s*|\\s*\x60{3}$", "", text.strip(), flags=re.I))
-        return re.sub(r"^\x60{3}(?:html)?\\s*|\\s*\x60{3}$", "", text.strip(), flags=re.I)
+            return json.loads(re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I))
+        return re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I)
     except Exception as exc:
         errors.append("Fallback providers: " + str(exc)[:350])
     raise RuntimeError("All AI design providers failed: " + " | ".join(errors))
