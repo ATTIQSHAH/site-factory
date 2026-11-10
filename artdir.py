@@ -181,18 +181,7 @@ def _parse_visual_review(answer):
 
 
 def critique(shots, name):
-    """Review mobile and desktop screenshots through resilient OpenRouter vision fallbacks."""
-    key = os.getenv("OPENROUTER_API_KEY", "")
-
-    # Prefer vision models that return ordinary text reliably. Keep model IDs
-    # configurable so providers can be changed without editing application code.
-    models = [
-        os.getenv("OPENROUTER_VISUAL_MODEL", "google/gemma-4-31b-it:free"),
-        os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL", "dots-studio/dots-3-note-preview:free"),
-        os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL", "google/gemma-4-26b-a4b-it:free"),
-        os.getenv("OPENROUTER_VISUAL_QUATERNARY_MODEL", "nvidia/nemotron-3.5-super-vl:free"),
-        os.getenv("OPENROUTER_VISUAL_ROUTER_MODEL", "openrouter/free"),
-    ]
+    """Review mobile and desktop screenshots: Gemini first, then all configured fallbacks."""
     prompt = (
         f"Review this website demo for {name}. Image 1 is mobile; image 2 is desktop. "
         "Evaluate visual polish, distinctiveness, spacing, image crops, text contrast, "
@@ -201,12 +190,7 @@ def critique(shots, name):
         "problems that are not visible. Return exactly one JSON object with numeric "
         'score and a fixes array, for example: {"score": 8, "fixes": ["Improve hero crop"]}.'
     )
-    parts = [{"type": "text", "text": prompt}]
-    for shot in shots:
-        encoded = base64.b64encode(shot).decode("ascii")
-        parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}})
-
-    # Prefer Gemini for visual review. OpenRouter is retained only as a fallback.
+    errors = []
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     if gemini_key:
         gemini_model = (
@@ -246,101 +230,39 @@ def critique(shots, name):
                 "",
             )
             parsed = _parse_visual_review(answer)
-            return {
-                **parsed,
-                "provider": "gemini",
-                "model": gemini_model,
-            }
+            print(f"AI visual provider selected: gemini / {gemini_model}", flush=True)
+            return {**parsed, "provider": "gemini", "model": gemini_model}
         except Exception as exc:
-            errors = [f"Gemini primary ({gemini_model}): {str(exc)[:220]}"]
+            errors.append(f"Gemini/{gemini_model}: {str(exc)[:220]}")
     else:
-        errors = ["Gemini: API key not configured"]
+        errors.append("Gemini: API key not configured")
 
-    if key:
-        for model in dict.fromkeys(models):
-            # Rate-limited providers are skipped immediately; retrying the same
-            # free endpoint burns time and does not help the other available models.
-            for attempt in range(2):
-                try:
-                    response = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": [{"role": "user", "content": parts}],
-                            "temperature": 0,
-                            "max_tokens": 700,
-                        },
-                        timeout=120,
-                    )
-                    if response.status_code == 429:
-                        errors.append(f"{model}: HTTP 429 rate limited")
-                        break
-                    if response.status_code in (408, 425) or response.status_code >= 500:
-                        detail = f"HTTP {response.status_code}: {response.text[:180]}"
-                        if attempt == 0:
-                            headers = getattr(response, "headers", {}) or {}
-                            try:
-                                retry_after = float(headers.get("Retry-After", ""))
-                            except (TypeError, ValueError):
-                                retry_after = 2
-                            time.sleep(min(max(retry_after, 1), 5))
-                            continue
-                        errors.append(f"{model}: {detail}")
-                        break
-    
-                    response.raise_for_status()
-                    payload = response.json()
-                    choices = payload.get("choices") or []
-                    message = choices[0].get("message") if choices else None
-                    if not isinstance(message, dict):
-                        raise ValueError("Provider returned no assistant message")
-    
-                    answer = message.get("content")
-                    # Some reasoning-first vision models put the final answer in
-                    # reasoning instead of content. Accept it only if it contains
-                    # a complete, schema-valid review object.
-                    candidates = [answer, message.get("reasoning")]
-                    parsed = None
-                    parse_errors = []
-                    for candidate in candidates:
-                        if candidate:
-                            try:
-                                parsed = _parse_visual_review(candidate)
-                                break
-                            except (TypeError, ValueError, json.JSONDecodeError) as exc:
-                                parse_errors.append(str(exc))
-                    if parsed is None:
-                        raise ValueError(
-                            "No valid review JSON in model output"
-                            + (": " + "; ".join(parse_errors[:2]) if parse_errors else "")
-                        )
-                    return {
-                        **parsed,
-                        "provider": "openrouter",
-                        "model": model,
-                    }
-                except Exception as exc:
-                    errors.append(f"{model}: {str(exc)[:220]}")
-                    break
-    
-    else:
-        errors.append("OpenRouter: API key not configured; trying Gemini fallback")
-    # Additional vision-capable providers (optional; model IDs must be configured).
+    # OpenAI-compatible vision content is accepted by OpenRouter and Groq.
+    # Cloudflare is attempted only when a specific visual model is configured.
+    parts = [{"type": "text", "text": prompt}]
+    for shot in shots:
+        encoded = base64.b64encode(shot).decode("ascii")
+        parts.append({
+            "type": "image_url",
+            "image_url": {"url": "data:image/jpeg;base64," + encoded},
+        })
     try:
         import provider_router
         routed = provider_router.chat_candidates(
-            "visual", [{"role": "user", "content": parts}],
-            max_tokens=700, timeout=120
+            "visual",
+            [{"role": "user", "content": parts}],
+            max_tokens=700,
+            timeout=120,
+            validator=_parse_visual_review,
         )
-        parsed = _parse_visual_review(routed["content"])
+        parsed = routed.get("validated") or _parse_visual_review(routed["content"])
         return {
             **parsed,
             "provider": routed["provider"],
             "model": routed["model"],
         }
     except Exception as exc:
-        errors.append("Groq/Cloudflare fallback: " + str(exc)[:300])
+        errors.append("Fallback providers: " + str(exc)[:500])
 
     raise RuntimeError("All visual-review providers failed: " + " | ".join(errors))
 
