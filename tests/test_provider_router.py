@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch, Mock
 
@@ -5,18 +6,42 @@ import provider_router
 
 
 class ProviderRouterTests(unittest.TestCase):
-    def test_groq_is_enabled_only_with_key_and_model(self):
+    def test_only_allowlisted_free_openrouter_models_are_used(self):
+        env = {
+            "OPENROUTER_API_KEY": "test-key",
+            "OPENROUTER_DESIGN_MODELS": "google/gemma-4-31b-it:free,paid/model",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            candidates = provider_router._configured_candidates("design")
+        models = [c["model"] for c in candidates if c["provider"] == "openrouter"]
+        self.assertIn("google/gemma-4-31b-it:free", models)
+        self.assertNotIn("paid/model", models)
+        self.assertTrue(all(m.endswith(":free") or m == "openrouter/free" for m in models))
+
+    def test_groq_is_never_configured_even_if_a_key_exists(self):
         with patch.dict("os.environ", {
-            "GROQ_API_KEY": "test-key",
-            "GROQ_DESIGN_MODEL": "llama-3.3-70b-versatile",
+            "GROQ_API_KEY": "must-not-be-used",
+            "GROQ_DESIGN_MODEL": "some-paid-model",
         }, clear=True):
             candidates = provider_router._configured_candidates("design")
-        self.assertEqual(len(candidates), 1)
-        self.assertEqual(candidates[0]["provider"], "groq")
-        self.assertEqual(candidates[0]["model"], "llama-3.3-70b-versatile")
+        self.assertFalse(any(c["provider"] == "groq" for c in candidates))
+
+    def test_cloudflare_uses_only_free_allowlisted_models(self):
+        env = {
+            "CLOUDFLARE_ACCOUNT_ID": "account-id",
+            "CLOUDFLARE_API_TOKEN": "cf-token",
+            "CLOUDFLARE_DESIGN_MODEL": "@cf/zai-org/glm-4.7-flash",
+            "CLOUDFLARE_VISUAL_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            design = provider_router._configured_candidates("design")
+            visual = provider_router._configured_candidates("visual")
+        self.assertEqual(design[0]["model"], "@cf/zai-org/glm-4.7-flash")
+        self.assertEqual(visual[0]["model"], "@cf/meta/llama-3.2-11b-vision-instruct")
+        self.assertIn("/accounts/account-id/ai/v1/chat/completions", design[0]["url"])
 
     @patch("provider_router.requests.post")
-    def test_router_moves_from_openrouter_429_to_groq(self, post):
+    def test_openrouter_429_falls_through_to_cloudflare(self, post):
         limited = Mock(status_code=429, text="rate limited", headers={})
         success = Mock(status_code=200, headers={})
         success.json.return_value = {
@@ -26,34 +51,22 @@ class ProviderRouterTests(unittest.TestCase):
         post.side_effect = [limited, success]
         env = {
             "OPENROUTER_API_KEY": "or-key",
-            "OPENROUTER_DESIGN_MODEL": "model-a:free",
-            "OPENROUTER_DESIGN_FALLBACK_MODEL": "model-a:free",
-            "GROQ_API_KEY": "groq-key",
-            "GROQ_DESIGN_MODEL": "qwen/qwen3.8-27b",
+            "OPENROUTER_DESIGN_MODELS": "google/gemma-4-31b-it:free",
+            "CLOUDFLARE_ACCOUNT_ID": "account-id",
+            "CLOUDFLARE_API_TOKEN": "cf-token",
+            "CLOUDFLARE_DESIGN_MODEL": "@cf/zai-org/glm-4.7-flash",
         }
         with patch.dict("os.environ", env, clear=True):
             result = provider_router.chat_candidates(
                 "design", [{"role": "user", "content": "build a page"}]
             )
-        self.assertEqual(result["provider"], "groq")
-        self.assertEqual(result["model"], "qwen/qwen3.8-27b")
+        self.assertEqual(result["provider"], "cloudflare")
+        self.assertEqual(result["model"], "@cf/zai-org/glm-4.7-flash")
         self.assertIn("<html>", result["content"])
         self.assertEqual(post.call_count, 2)
 
-    def test_cloudflare_requires_account_token_and_task_model(self):
-        env = {
-            "CLOUDFLARE_ACCOUNT_ID": "account-id",
-            "CLOUDFLARE_API_TOKEN": "cf-token",
-            "CLOUDFLARE_VISUAL_MODEL": "@cf/meta/llama-4-scout-17b-16e-instruct",
-        }
-        with patch.dict("os.environ", env, clear=True):
-            candidates = provider_router._configured_candidates("visual")
-        self.assertEqual(len(candidates), 1)
-        self.assertEqual(candidates[0]["provider"], "cloudflare")
-        self.assertIn("/accounts/account-id/ai/v1/chat/completions", candidates[0]["url"])
-
     @patch("provider_router.requests.post")
-    def test_invalid_structured_output_moves_to_next_model(self, post):
+    def test_invalid_structured_output_moves_to_next_free_model(self, post):
         invalid = Mock(status_code=200, headers={})
         invalid.json.return_value = {"choices": [{"message": {"content": "not json"}}]}
         invalid.raise_for_status.return_value = None
@@ -63,24 +76,16 @@ class ProviderRouterTests(unittest.TestCase):
         post.side_effect = [invalid, valid]
         env = {
             "OPENROUTER_API_KEY": "or-key",
-            "OPENROUTER_DESIGN_MODEL": "first:free",
-            "OPENROUTER_DESIGN_FALLBACK_MODEL": "second:free",
+            "OPENROUTER_DESIGN_MODELS": "google/gemma-4-31b-it:free,dots-studio/dots-3-note-preview:free",
         }
         with patch.dict("os.environ", env, clear=True):
             result = provider_router.chat_candidates(
                 "design", [{"role": "user", "content": "test"}],
-                validator=__import__("json").loads,
+                validator=json.loads,
             )
-        self.assertEqual(result["model"], "second:free")
+        self.assertEqual(result["model"], "dots-studio/dots-3-note-preview:free")
         self.assertEqual(result["validated"], {"ok": True})
         self.assertEqual(post.call_count, 2)
-
-    def test_groq_credentials_enable_design_without_gemini(self):
-        with patch.dict("os.environ", {
-            "GROQ_API_KEY": "groq-key",
-            "GROQ_DESIGN_MODEL": "qwen/qwen3.8-27b",
-        }, clear=True):
-            self.assertTrue(provider_router.has_credentials("design"))
 
 
 if __name__ == "__main__":
