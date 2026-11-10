@@ -90,7 +90,7 @@ def gemini_menu(data, mime):
             import provider_router
             encoded = base64.b64encode(data).decode("ascii")
             def validate(answer):
-                value = json.loads(answer.strip().strip("`"))
+                value = json.loads(re.sub(r"^```(?:json)?\\s*|\\s*```$", "", answer.strip(), flags=re.I))
                 if not isinstance(value, list):
                     raise ValueError("Menu extraction must return a JSON array")
                 rows = [item for item in value if isinstance(item, dict) and item.get("name")]
