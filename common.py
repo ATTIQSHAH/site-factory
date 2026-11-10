@@ -15,13 +15,31 @@ def ld(soup):
             if isinstance(x, dict): out.append(x)
     return [x for x in out if re.search(r"Restaurant|Cafe|Coffee|Bakery|LocalBusiness|FoodEstablishment", json.dumps(x.get("@type", "")))]
 def ai_about(name, facts):
-    if not GEM or not facts: return facts
+    if not facts:
+        return facts
+    prompt = f"Write a warm 2-sentence About blurb for {name}. Use ONLY these facts, invent nothing: {facts}. Return plain text."
+    if GEM:
+        try:
+            r = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{GEM_MODEL}:generateContent?key={GEM}",
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=30,
+            )
+            r.raise_for_status()
+            answer = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if answer:
+                return answer
+        except Exception:
+            pass
     try:
-        p = f"Write a warm 2-sentence About blurb for {name}. Use ONLY these facts, invent nothing: {facts}. Return plain text."
-        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEM_MODEL}:generateContent?key={GEM}", json={"contents": [{"parts": [{"text": p}]}]}, timeout=30)
-        r.raise_for_status()
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception: return facts
+        import provider_router
+        routed = provider_router.chat_candidates(
+            "design", [{"role": "user", "content": prompt}],
+            max_tokens=250, timeout=45,
+        )
+        return routed["content"].strip() or facts
+    except Exception:
+        return facts
 def audit(url, html):
     s = BeautifulSoup(html, "html.parser"); low = html.lower(); iss, fix = [], []
     perf = seo = ""
