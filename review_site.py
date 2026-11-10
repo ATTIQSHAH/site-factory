@@ -131,6 +131,8 @@ def main():
             visual_review = {
                 "status": "passed" if float(critique.get("score", 0)) >= 8 else "needs_changes",
                 "score": float(critique.get("score", 0)),
+                "provider": critique.get("provider", ""),
+                "model": critique.get("model", ""),
                 "fixes": critique.get("fixes", []),
             }
         except Exception as exc:
