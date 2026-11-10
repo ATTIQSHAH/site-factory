@@ -52,6 +52,36 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(candidates[0]["provider"], "cloudflare")
         self.assertIn("/accounts/account-id/ai/v1/chat/completions", candidates[0]["url"])
 
+    @patch("provider_router.requests.post")
+    def test_invalid_structured_output_moves_to_next_model(self, post):
+        invalid = Mock(status_code=200, headers={})
+        invalid.json.return_value = {"choices": [{"message": {"content": "not json"}}]}
+        invalid.raise_for_status.return_value = None
+        valid = Mock(status_code=200, headers={})
+        valid.json.return_value = {"choices": [{"message": {"content": '{"ok": true}'}}]}
+        valid.raise_for_status.return_value = None
+        post.side_effect = [invalid, valid]
+        env = {
+            "OPENROUTER_API_KEY": "or-key",
+            "OPENROUTER_DESIGN_MODEL": "first:free",
+            "OPENROUTER_DESIGN_FALLBACK_MODEL": "second:free",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            result = provider_router.chat_candidates(
+                "design", [{"role": "user", "content": "test"}],
+                validator=__import__("json").loads,
+            )
+        self.assertEqual(result["model"], "second:free")
+        self.assertEqual(result["validated"], {"ok": True})
+        self.assertEqual(post.call_count, 2)
+
+    def test_groq_credentials_enable_design_without_gemini(self):
+        with patch.dict("os.environ", {
+            "GROQ_API_KEY": "groq-key",
+            "GROQ_DESIGN_MODEL": "qwen/qwen3.8-27b",
+        }, clear=True):
+            self.assertTrue(provider_router.has_credentials("design"))
+
 
 if __name__ == "__main__":
     unittest.main()
