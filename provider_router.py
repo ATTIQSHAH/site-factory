@@ -56,6 +56,10 @@ def _configured_candidates(task):
         )
         configured = _model_list(
             os.getenv("OPENROUTER_VISUAL_MODELS" if visual else "OPENROUTER_DESIGN_MODELS"),
+            os.getenv("OPENROUTER_VISUAL_MODEL" if visual else "OPENROUTER_DESIGN_MODEL"),
+            os.getenv("OPENROUTER_VISUAL_FALLBACK_MODEL" if visual else "OPENROUTER_DESIGN_FALLBACK_MODEL"),
+            os.getenv("OPENROUTER_VISUAL_TERTIARY_MODEL" if visual else "OPENROUTER_DESIGN_TERTIARY_MODEL"),
+            os.getenv("OPENROUTER_VISUAL_QUATERNARY_MODEL" if visual else "OPENROUTER_DESIGN_QUATERNARY_MODEL"),
             *defaults,
         )
         for model in configured:
