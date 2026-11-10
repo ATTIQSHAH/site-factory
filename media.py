@@ -67,14 +67,48 @@ def _gemini_response(body, timeout):
 
 
 def gemini_menu(data, mime):
-    if not GEM or not data or len(data) > 15_000_000: return []
-    p = 'Extract the menu printed in this document as a JSON array of {"section":str,"name":str,"desc":str,"price":str}. Only items actually printed, nothing invented, max 30 items.'
-    try:
-        payload = _gemini_response({"contents": [{"parts": [{"text": p}, {"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode()}}]}], "generationConfig": {"responseMimeType": "application/json"}}, 90)
-        items = json.loads(payload["candidates"][0]["content"]["parts"][0]["text"])
-        return [i for i in items if isinstance(i, dict) and i.get("name")][:30]
-    except Exception:
+    if not data or len(data) > 15_000_000:
         return []
+    prompt = 'Extract the menu printed in this document as a JSON array of {"section":str,"name":str,"desc":str,"price":str}. Only items actually printed, nothing invented, max 30 items.'
+    if GEM:
+        try:
+            payload = _gemini_response({
+                "contents": [{"parts": [
+                    {"text": prompt},
+                    {"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode()}},
+                ]}],
+                "generationConfig": {"responseMimeType": "application/json"},
+            }, 90)
+            items = json.loads(payload["candidates"][0]["content"]["parts"][0]["text"])
+            return [i for i in items if isinstance(i, dict) and i.get("name")][:30]
+        except Exception:
+            pass
+    # OpenAI-compatible vision APIs can read common image formats. PDF input
+    # stays Gemini-only because providers differ in document/file support.
+    if mime.startswith("image/"):
+        try:
+            import provider_router
+            encoded = base64.b64encode(data).decode("ascii")
+            def validate(answer):
+                value = json.loads(answer.strip().strip("`"))
+                if not isinstance(value, list):
+                    raise ValueError("Menu extraction must return a JSON array")
+                rows = [item for item in value if isinstance(item, dict) and item.get("name")]
+                if not rows:
+                    raise ValueError("No menu items returned")
+                return rows[:30]
+            routed = provider_router.chat_candidates(
+                "visual",
+                [{"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
+                ]}],
+                max_tokens=3500, timeout=90, validator=validate,
+            )
+            return routed.get("validated", [])[:30]
+        except Exception:
+            pass
+    return []
 
 def label(im):
     """Vision label (needs Gemini key): food, drink, interior, exterior, people, graphic, logo. '' if unavailable."""
