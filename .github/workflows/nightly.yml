@@ -22,13 +22,10 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_DESIGN_MODEL: ${{ vars.OPENROUTER_DESIGN_MODEL }}
           OPENROUTER_DESIGN_FALLBACK_MODEL: ${{ vars.OPENROUTER_DESIGN_FALLBACK_MODEL }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_DESIGN_MODEL: ${{ vars.GROQ_DESIGN_MODEL }}
-          GROQ_VISUAL_MODEL: ${{ vars.GROQ_VISUAL_MODEL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_DESIGN_MODEL: ${{ vars.CLOUDFLARE_DESIGN_MODEL }}
-          CLOUDFLARE_VISUAL_MODEL: ${{ vars.CLOUDFLARE_VISUAL_MODEL }}
+          CLOUDFLARE_DESIGN_MODEL: "@cf/zai-org/glm-4.7-flash"
+          CLOUDFLARE_VISUAL_MODEL: "@cf/meta/llama-3.2-11b-vision-instruct"
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
@@ -44,13 +41,10 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_DESIGN_MODEL: ${{ vars.OPENROUTER_DESIGN_MODEL }}
           OPENROUTER_DESIGN_FALLBACK_MODEL: ${{ vars.OPENROUTER_DESIGN_FALLBACK_MODEL }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_DESIGN_MODEL: ${{ vars.GROQ_DESIGN_MODEL }}
-          GROQ_VISUAL_MODEL: ${{ vars.GROQ_VISUAL_MODEL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_DESIGN_MODEL: ${{ vars.CLOUDFLARE_DESIGN_MODEL }}
-          CLOUDFLARE_VISUAL_MODEL: ${{ vars.CLOUDFLARE_VISUAL_MODEL }}
+          CLOUDFLARE_DESIGN_MODEL: "@cf/zai-org/glm-4.7-flash"
+          CLOUDFLARE_VISUAL_MODEL: "@cf/meta/llama-3.2-11b-vision-instruct"
           GEMINI_DESIGN_MODEL: gemini-3.8-flash
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_VISUAL_MODEL: google/gemma-4-31b-it:free
