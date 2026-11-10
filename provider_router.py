@@ -31,7 +31,7 @@ def _configured_candidates(task):
                             "Content-Type": "application/json"},
             })
 
-    groq_model = os.getenv("GROQ_VISUAL_MODEL" if task == "visual" else "GROQ_DESIGN_MODEL", "").strip()
+    groq_model = os.getenv("GROQ_VISUAL_MODEL" if task == "visual" else "GROQ_DESIGN_MODEL", "qwen/qwen3.8-27b").strip()
     if os.getenv("GROQ_API_KEY") and groq_model:
         candidates.append({
             "provider": "groq", "model": groq_model,
@@ -40,7 +40,7 @@ def _configured_candidates(task):
                         "Content-Type": "application/json"},
         })
 
-    cf_model = os.getenv("CLOUDFLARE_VISUAL_MODEL" if task == "visual" else "CLOUDFLARE_DESIGN_MODEL", "").strip()
+    cf_model = os.getenv("CLOUDFLARE_VISUAL_MODEL" if task == "visual" else "CLOUDFLARE_DESIGN_MODEL", "@cf/qwen/qwen3.8-27b").strip()
     account = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
     if account and token and cf_model:
@@ -56,7 +56,7 @@ def has_credentials(task="visual"):
     return bool(_configured_candidates(task)) or bool(os.getenv("GEMINI_API_KEY"))
 
 
-def chat_candidates(task, messages, max_tokens=12000, timeout=180):
+def chat_candidates(task, messages, max_tokens=12000, timeout=180, exclude_providers=()):
     """Try compatible providers in order; return content and provider provenance."""
     errors = []
     for candidate in _configured_candidates(task):
