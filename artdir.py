@@ -98,7 +98,7 @@ def gem(parts, system=None, js=False):
             str(part.get("text", "")) for part in parts if isinstance(part, dict)
         )
         messages.append({"role": "user", "content": user_text})
-        result = provider_router.chat_candidates("design", messages, max_tokens=30000, timeout=240)
+        result = provider_router.chat_candidates("design", messages, max_tokens=12000, timeout=240)
         text = result["content"]
         LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = result["provider"], result["model"]
         print(f"AI design provider selected: {LAST_DESIGN_PROVIDER} / {LAST_DESIGN_MODEL}", flush=True)
