@@ -48,7 +48,7 @@ class ProviderRouterTests(unittest.TestCase):
             "choices": [{"message": {"content": "<!doctype html><html>ok</html>"}}]
         }
         success.raise_for_status.return_value = None
-        post.side_effect = [limited, limited, limited, limited, success]
+        post.side_effect = [limited, limited, limited, success]
         env = {
             "OPENROUTER_API_KEY": "or-key",
             "OPENROUTER_DESIGN_MODELS": "google/gemma-4-31b-it:free",
@@ -63,7 +63,7 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(result["provider"], "cloudflare")
         self.assertEqual(result["model"], "@cf/zai-org/glm-4.7-flash")
         self.assertIn("<html>", result["content"])
-        self.assertEqual(post.call_count, 5)
+        self.assertEqual(post.call_count, 4)
 
     @patch("provider_router.requests.post")
     def test_invalid_structured_output_moves_to_next_free_model(self, post):
