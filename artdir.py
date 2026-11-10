@@ -34,37 +34,74 @@ HARD RULES
 - Follow the DESIGN DIRECTION strictly; compose a layout and section order that is distinct to this direction. Derive colours from the direction and the supplied dominant colours.
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
-    if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"responseMimeType": "application/json"} if js else {})}}
-    if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
-    response = None
-    for attempt in range(3):
-        response = requests.post(url, json=body, timeout=240)
-        if response.status_code == 429:
-            try: error_payload = response.json()
-            except Exception: error_payload = {}
-            message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
-            if "quota" in message.lower() or "resource_exhausted" in message.lower():
-                raise RuntimeError(f"Gemini HTTP 429: {message[:300]}")
-        if response.status_code == 429 or 500 <= response.status_code < 600:
-            if attempt < 2:
-                try: delay = float(response.headers.get("Retry-After", ""))
-                except (TypeError, ValueError): delay = 2 ** (attempt + 1)
-                time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
-                continue
-            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
-        if hasattr(response, "raise_for_status"):
-            response.raise_for_status()
-        elif not getattr(response, "ok", True):
-            raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
-        break
-    payload = response.json()
-    candidates = payload.get("candidates") or []
-    if not candidates:
-        raise RuntimeError("Gemini returned no candidate: " + json.dumps(payload.get("promptFeedback", payload.get("error", {})))[:300])
-    t = candidates[0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", t.strip())
+    """Generate with Gemini first, then configured OpenAI-compatible providers."""
+    errors = []
+    if KEY:
+        body = {"contents": [{"parts": parts}], "generationConfig": {
+            "maxOutputTokens": 30000,
+            **({"responseMimeType": "application/json"} if js else {})
+        }}
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
+        try:
+            response = None
+            for attempt in range(3):
+                response = requests.post(
+                    url, headers={"x-goog-api-key": KEY}, json=body, timeout=240
+                )
+                if response.status_code == 429:
+                    try:
+                        error_payload = response.json()
+                    except Exception:
+                        error_payload = {}
+                    message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
+                    if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                        raise RuntimeError(f"Gemini HTTP 429: {message[:250]}")
+                if response.status_code == 429 or 500 <= response.status_code < 600:
+                    if attempt < 2:
+                        try:
+                            delay = float(response.headers.get("Retry-After", ""))
+                        except (TypeError, ValueError):
+                            delay = 2 ** (attempt + 1)
+                        time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
+                        continue
+                response.raise_for_status()
+                break
+            payload = response.json()
+            candidates = payload.get("candidates") or []
+            if not candidates:
+                raise RuntimeError("Gemini returned no candidate: " + json.dumps(payload.get("promptFeedback", payload.get("error", {})))[:250])
+            text = next(
+                (part.get("text") for part in candidates[0].get("content", {}).get("parts", [])
+                 if isinstance(part.get("text"), str)), ""
+            )
+            if not text.strip():
+                raise RuntimeError("Gemini returned empty content")
+            return json.loads(text) if js else re.sub(r"^\x60{3}(?:html)?\\s*|\\s*\x60{3}$", "", text.strip())
+        except Exception as exc:
+            errors.append("Gemini: " + str(exc)[:220])
+    else:
+        errors.append("Gemini: API key not configured")
+
+    # The AI design prompt is text-only, so use compatible text models as fallbacks.
+    try:
+        import provider_router
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        user_text = "\\n".join(
+            str(part.get("text", "")) for part in parts if isinstance(part, dict)
+        )
+        messages.append({"role": "user", "content": user_text})
+        result = provider_router.chat_candidates("design", messages, max_tokens=30000, timeout=240)
+        text = result["content"]
+        if js:
+            return json.loads(re.sub(r"^\x60{3}(?:json)?\\s*|\\s*\x60{3}$", "", text.strip(), flags=re.I))
+        return re.sub(r"^\x60{3}(?:html)?\\s*|\\s*\x60{3}$", "", text.strip(), flags=re.I)
+    except Exception as exc:
+        errors.append("Fallback providers: " + str(exc)[:350])
+    raise RuntimeError("All AI design providers failed: " + " | ".join(errors))
 
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
