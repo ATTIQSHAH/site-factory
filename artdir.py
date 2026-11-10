@@ -2,7 +2,8 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"\nLAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
+LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -35,6 +36,7 @@ HARD RULES
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
     """Generate with Gemini first, then configured OpenAI-compatible providers."""
+    global LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL
     errors = []
     if KEY:
         body = {"contents": [{"parts": parts}], "generationConfig": {
@@ -78,6 +80,8 @@ def gem(parts, system=None, js=False):
             )
             if not text.strip():
                 raise RuntimeError("Gemini returned empty content")
+            LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "gemini", MODEL
+            print(f"AI design provider selected: gemini / {MODEL}", flush=True)
             return json.loads(text) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip())
         except Exception as exc:
             errors.append("Gemini: " + str(exc)[:220])
@@ -96,6 +100,8 @@ def gem(parts, system=None, js=False):
         messages.append({"role": "user", "content": user_text})
         result = provider_router.chat_candidates("design", messages, max_tokens=30000, timeout=240)
         text = result["content"]
+        LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = result["provider"], result["model"]
+        print(f"AI design provider selected: {LAST_DESIGN_PROVIDER} / {LAST_DESIGN_MODEL}", flush=True)
         if js:
             return json.loads(re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I))
         return re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I)
@@ -337,6 +343,8 @@ def critique(shots, name):
 
 def make_site(d, root, slug, direction, fallback):
     """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
+    global LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL
+    LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
     folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
     try:
         for i in range(3):
