@@ -35,7 +35,7 @@ jobs:
           OPENROUTER_VISUAL_FALLBACK_MODEL: dots-studio/dots-3-note-preview:free
           OPENROUTER_VISUAL_TERTIARY_MODEL: google/gemma-4-26b-a4b-it:free
           OPENROUTER_VISUAL_QUATERNARY_MODEL: nvidia/nemotron-3.5-super-vl:free
-          AI_DESIGN: ${{ vars.AI_DESIGN }}
+          AI_DESIGN: ${{ vars.AI_DESIGN || '1' }}
           BASE_URL: ${{ vars.BASE_URL }}
           MAX_PER_RUN: ${{ github.event.inputs.max || '15' }}
       - name: Review every new demo before publishing
