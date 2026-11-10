@@ -367,6 +367,22 @@ def critique(shots, name):
         except Exception as exc:
             errors.append(f"Gemini fallback ({gemini_model}): {str(exc)[:220]}")
 
+    # Additional vision-capable providers (optional; model IDs must be configured).
+    try:
+        import provider_router
+        routed = provider_router.chat_candidates(
+            "visual", [{"role": "user", "content": parts}],
+            max_tokens=700, timeout=120
+        )
+        parsed = _parse_visual_review(routed["content"])
+        return {
+            **parsed,
+            "provider": routed["provider"],
+            "model": routed["model"],
+        }
+    except Exception as exc:
+        errors.append("Groq/Cloudflare fallback: " + str(exc)[:300])
+
     raise RuntimeError("All visual-review providers failed: " + " | ".join(errors))
 
 def make_site(d, root, slug, direction, fallback):
