@@ -60,6 +60,8 @@ def chat_candidates(task, messages, max_tokens=12000, timeout=180, exclude_provi
     """Try compatible providers in order; return content and provider provenance."""
     errors = []
     for candidate in _configured_candidates(task):
+        if candidate["provider"] in set(exclude_providers):
+            continue
         model = candidate["model"]
         for attempt in range(2):
             try:
