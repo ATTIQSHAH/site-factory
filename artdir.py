@@ -2,7 +2,7 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"\nLAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -317,56 +317,6 @@ def critique(shots, name):
     
     else:
         errors.append("OpenRouter: API key not configured; trying Gemini fallback")
-    # If all OpenRouter endpoints are unavailable (common with shared free-tier
-    # quotas), use the already-configured Gemini API as a secondary reviewer.
-    # This remains a real visual review; deterministic checks are never bypassed.
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if gemini_key:
-        gemini_model = (
-            os.getenv("GEMINI_VISUAL_MODEL")
-            or os.getenv("GEMINI_DESIGN_MODEL")
-            or os.getenv("GEMINI_MODEL")
-            or MODEL
-        )
-        gemini_parts = [{"text": prompt}]
-        for shot in shots:
-            gemini_parts.append({
-                "inlineData": {
-                    "mimeType": "image/jpeg",
-                    "data": base64.b64encode(shot).decode("ascii"),
-                }
-            })
-        try:
-            response = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent",
-                headers={"x-goog-api-key": gemini_key},
-                json={
-                    "contents": [{"parts": gemini_parts}],
-                    "generationConfig": {
-                        "temperature": 0,
-                        "maxOutputTokens": 700,
-                        "responseMimeType": "application/json",
-                    },
-                },
-                timeout=120,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            candidates = payload.get("candidates") or []
-            parts_out = (candidates[0].get("content") or {}).get("parts") or []
-            answer = next(
-                (part.get("text") for part in parts_out if isinstance(part.get("text"), str)),
-                "",
-            )
-            parsed = _parse_visual_review(answer)
-            return {
-                **parsed,
-                "provider": "gemini",
-                "model": gemini_model,
-            }
-        except Exception as exc:
-            errors.append(f"Gemini fallback ({gemini_model}): {str(exc)[:220]}")
-
     # Additional vision-capable providers (optional; model IDs must be configured).
     try:
         import provider_router
@@ -396,5 +346,5 @@ def make_site(d, root, slug, direction, fallback):
             if sc > best[0]: best = (sc, html)
             if not issues and sc >= 8: break
     except Exception as e: print("AI design failed:", str(e)[:100])
-    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1)}
+    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1), "ai_provider": LAST_DESIGN_PROVIDER, "ai_model": LAST_DESIGN_MODEL}
     h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; return h, info
