@@ -79,7 +79,7 @@ def _configured_candidates(task):
     # use of models requiring paid billing. Workers Free enforces its daily
     # 10,000-Neuron allocation server-side.
     account = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
-    token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
+    token = os.getenv("CLOUDFLARE_AI_API_TOKEN", "").strip()
     allowed = CLOUDFLARE_FREE_VISION_MODELS if visual else CLOUDFLARE_FREE_TEXT_MODELS
     configured = _model_list(
         os.getenv("CLOUDFLARE_VISUAL_MODELS" if visual else "CLOUDFLARE_DESIGN_MODELS"),
