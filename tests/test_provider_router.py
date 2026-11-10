@@ -27,7 +27,7 @@ class ProviderRouterTests(unittest.TestCase):
         env = {
             "OPENROUTER_API_KEY": "or-key",
             "OPENROUTER_DESIGN_MODEL": "model-a:free",
-            "OPENROUTER_DESIGN_FALLBACK_MODEL": "model-b:free",
+            "OPENROUTER_DESIGN_FALLBACK_MODEL": "model-a:free",
             "GROQ_API_KEY": "groq-key",
             "GROQ_DESIGN_MODEL": "qwen/qwen3.8-27b",
         }
