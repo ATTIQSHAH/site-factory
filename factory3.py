@@ -27,6 +27,14 @@ def apply_concept_menu(document, business):
     soup = BeautifulSoup(document or "", "html.parser")
     menu_section = soup.find(id="menu")
     if not menu_section:
+        # AI designs sometimes render a complete menu section without the
+        # expected anchor. Reuse that section instead of appending a second menu.
+        for candidate in soup.find_all(["section", "main", "div"]):
+            if candidate.select_one(".menu-card, .menu-cards, .menu-layout, .menu-item, .menu-item-title"):
+                menu_section = candidate
+                menu_section["id"] = "menu"
+                break
+    if not menu_section:
         menu_section = soup.new_tag("section", id="menu")
         heading = soup.new_tag("h2")
         heading.string = "Sample menu"
@@ -37,7 +45,7 @@ def apply_concept_menu(document, business):
         note = soup.new_tag("div", attrs={"class": "concept-menu-disclaimer", "role": "note"})
         menu_section.insert(0, note)
     note.string = "Concept preview — these are illustrative menu ideas, not a confirmed current menu. Final offerings and prices should be confirmed with the business."
-    layout = menu_section.select_one(".menu-layout, .menu-groups, .menu")
+    layout = menu_section.select_one(".menu-layout, .menu-groups, .menu, .menu-cards, .menu-section")
     if layout is None:
         layout = soup.new_tag("div", attrs={"class": "menu-layout"})
         menu_section.append(layout)
