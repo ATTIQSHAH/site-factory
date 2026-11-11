@@ -1,26 +1,40 @@
-# Production readiness and release policy
+# Site Factory demo readiness and release policy
 
-## Current status
+## Product purpose
+Site Factory generates polished, branded, niche-appropriate **sales-pitch concept websites** for prospective restaurants, cafes, coffee shops, bakeries, and fast-food businesses. These are previews to help win approval, not operational websites. After a prospect approves, the user will confirm business facts and implement operational features manually.
 
-This repository is under hardening. It is not approved for unattended batch generation or public production publishing until the isolated Fluff Bake Bar review passes from a clean run.
+## Content integrity
+- Analyze the prospect's public website for business name, niche, logo, brand colours, imagery, visual identity, and readily available factual details.
+- Select an appropriate handcrafted template from the template catalogue.
+- Exact menu extraction, menu URLs, prices, opening hours, street addresses, ordering links, booking systems, and payment integrations are not prerequisites for generation or review.
+- Generate a deterministic, niche-appropriate sample menu without unnecessary AI calls.
+- Every sample menu must be visibly labelled as illustrative concept content and state that actual offerings and prices must be confirmed with the business.
+- Never present sample items, prices, hours, awards, dietary claims, or business facts as verified.
+- Only render contact details, social links, addresses, and hours when supplied by the lead or supported by first-party website evidence.
+- Preserve the prospect's logo appearance, ensure suitable contrast, and use high-quality relevant photography.
 
-## Release requirements
+## Quality gate
+A demo passes only when:
+- Prospect identity and niche-appropriate template are correct.
+- Title, useful meta description, primary heading, and readable copy are present.
+- At least five sample menu items and a visible illustrative-content disclaimer are present.
+- Visual hierarchy, brand treatment, typography, spacing, and imagery are polished.
+- Mobile and desktop checks pass for overflow, broken images, JavaScript errors, repeated images, empty hero copy, and broken navigation anchors.
+- Desktop menu layout is usable; mobile and desktop screenshots exist.
+- Automated visual review passes. Unavailable/quota-failed visual review is not a pass.
+- Deployment is separately verified before claiming a live URL.
 
-- The lead selector must honor `ONLY_WEBSITE` as an exact URL match and fail closed if zero or multiple leads match.
-- The 50 handcrafted niche templates must be selected through the catalogue, with `premium.html` retained as a fallback.
-- Business classification must combine the website title, description, headings, structured data, and extracted menu evidence. The classification and chosen template must be recorded in results.
-- Menu items and prices must be source-backed. Suspicious repeated prices are suppressed; an external menu/order destination is acceptable when item extraction is unavailable.
-- Opening hours must only be rendered when reliably extracted. Missing hours are reported, never invented.
-- A generated page must have a real menu/order/reservation path, valid click-to-call contact, source-backed business identity, and no unresolved placeholders.
-- Mobile and desktop browser checks must pass for overflow, broken images, JS errors, repeated imagery, broken internal anchors, and CTA overlap.
-- Visual-review API errors, including quota exhaustion, are a failed/unavailable review—not a pass. Human review is required when automated visual review cannot run.
-- The isolated demo must regenerate from a clean directory and its report must identify the exact business and source URL.
-- Nightly/batch scheduling stays disabled until the isolated demo passes all deterministic and visual gates.
+Missing real menu data, prices, opening hours, street address, or ordering/booking functionality is not a failure by itself. Missing facts must not be invented.
 
-## Operating model
+## Free-tier and safe-run policy
+- Use only explicitly free AI models and free-tier allocations.
+- Never enable metered/paid Groq or paid OpenRouter models, buy credits, or upgrade provider plans.
+- Minimize AI calls; deterministic sample menus must not consume model quota.
+- Keep isolated review limited to one prospect per run. Do not launch batches until the isolated demo passes and the user explicitly authorizes a batch.
 
-1. Run CI (compile, unit tests, and template inventory).
-2. Run the isolated Fluff Bake Bar workflow from a clean workspace.
-3. Inspect the generated screenshots, HTML, source evidence, and JSON report.
-4. Fix every blocking failure and repeat the isolated run.
-5. Only after an explicit PASS, consider enabling batch generation behind a separate approval step.
+## Release workflow
+1. Run CI (compile, unit tests, template inventory).
+2. Run one isolated Fluff Bake Bar concept demo from a clean workspace.
+3. Inspect report, screenshots, generated HTML, and artifact evidence.
+4. Fix blocking failures and repeat only the isolated demo.
+5. Keep PR changes unmerged until the user reviews evidence and explicitly approves merging.
