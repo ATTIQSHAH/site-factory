@@ -168,7 +168,7 @@ def build3(d):
     story_photo_src = ph[4] if hero == "type" and len(ph) > 4 else (ph[1] if hero != "type" and len(ph) > 1 else "")
     story_photo_markup = f'<div class="story-photo-frame"><img src="{E(story_photo_src)}" alt="{n}"></div>' if story_photo_src else '<div class="story-photo-frame" aria-hidden="true"></div>'
     hero_note = ""  # Avoid a generic placeholder panel; let the real business photography carry the hero.
-    menu_intro = "Menu details from the business's published information." if d["menu"] or d.get("menu_url") or d.get("order_url") else "Contact the business for current menu information."
+    menu_intro = "Illustrative sample menu for this concept preview. Confirm actual offerings and prices with the business." if d["menu"] else "Contact the business for current information."
     map_frame = (f'<div class="map-frame map-card"><span class="map-card-kicker">Find us</span><div><h3>Make your way to {n}</h3><p class="map-card-address">{E(d["address"])}</p></div><a class="btn-main" href="{dirn}" target="_blank" rel="noopener">Open in Google Maps</a></div>' if d.get("address") else "")
     rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
