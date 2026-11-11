@@ -22,6 +22,44 @@ CONCEPT_MENUS = {
     "restaurant": [("Starters", ["Roasted Tomato Soup", "Crispy Calamari", "Seasonal Garden Salad"]), ("Mains", ["Herb-Roasted Chicken", "Pan-Seared Salmon", "Wild Mushroom Pasta", "Grilled Vegetable Plate"]), ("Desserts & Drinks", ["Chocolate Tart", "Vanilla Cheesecake", "House Lemonade"])],
 }
 
+def apply_concept_menu(document, business):
+    """Ensure every generated design visibly contains the labelled illustrative menu."""
+    soup = BeautifulSoup(document or "", "html.parser")
+    menu_section = soup.find(id="menu")
+    if not menu_section:
+        menu_section = soup.new_tag("section", id="menu")
+        heading = soup.new_tag("h2")
+        heading.string = "Sample menu"
+        menu_section.append(heading)
+        (soup.body or soup).append(menu_section)
+    note = menu_section.select_one(".concept-menu-disclaimer")
+    if note is None:
+        note = soup.new_tag("div", attrs={"class": "concept-menu-disclaimer", "role": "note"})
+        menu_section.insert(0, note)
+    note.string = "Concept preview — these are illustrative menu ideas, not a confirmed current menu. Final offerings and prices should be confirmed with the business."
+    layout = menu_section.select_one(".menu-layout, .menu-groups, .menu")
+    if layout is None:
+        layout = soup.new_tag("div", attrs={"class": "menu-layout"})
+        menu_section.append(layout)
+    existing = {x.get_text(" ", strip=True).casefold()
+                for x in menu_section.select(".menu-item-title, .menu-card h3, .menu-card h4")}
+    for item in business.get("menu", []):
+        name = str(item.get("name", "")).strip()
+        if not name or name.casefold() in existing:
+            continue
+        card = soup.new_tag("article", attrs={"class": "menu-card"})
+        title = soup.new_tag("span", attrs={"class": "menu-item-title"})
+        title.string = name
+        card.append(title)
+        layout.append(card)
+        existing.add(name.casefold())
+    if soup.head:
+        style = soup.new_tag("style")
+        style.string = ".concept-menu-disclaimer{margin:1rem 0 1.5rem;padding:1rem 1.2rem;border:1px solid currentColor;border-radius:12px;font-size:.9rem;line-height:1.55;opacity:.86}"
+        soup.head.append(style)
+    return str(soup)
+
+
 def concept_menu(niche_kind):
     """Build a deterministic, unpriced sample menu for a visual sales concept."""
     groups = CONCEPT_MENUS.get(niche_kind, CONCEPT_MENUS["restaurant"])
@@ -402,13 +440,14 @@ def process(r, folder):
         parsed_order = urlparse(order)
         if parsed_order.netloc.lower().endswith("square.site") and parsed_order.path in ("", "/"):
             order = urljoin(order, "/s/shop")
-    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": ai_about(name, about) if about else "", "logo": logo,
+    d = {"name": name, "slug": os.path.basename(folder), "phone": r.get("Phone") or biz.get("telephone", ""), "email": r.get("Email") or biz.get("email", ""), "address": addr, "city": city, "hours": hours_of(biz, text), "about": about, "logo": logo,
          "photos": ph, "video": video, "poster": poster, "menu": items, "menu_url": menu_url, "order_url": order, "ig": r.get("Instagram", ""), "fb": r.get("Facebook", ""), "web": u, "kind": kind, "niche": niche_kind, "classification": classification}
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: html, info = library.make_site(d, OUT, d["slug"], kind, build3)
     elif os.getenv("AI_DESIGN") == "1" and provider_router.has_credentials("design"):
         html, info = artdir.make_site(d, OUT, d["slug"], artdir.pick(kind, USED), build3)
         if info["theme"] in artdir.DIRS: USED[info["theme"]] += 1
     else: html, info = build3(d)
+    html = apply_concept_menu(html, d)
     open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
     pts = (2 if own >= 4 else 1 if own >= 2 else 0) + (2 if len(items) >= 5 else 0) + (1 if addr else 0) + (1 if d["hours"] else 0) + (1 if logo else 0) + (1 if len(about) >= 60 else 0)
     d["grade"] = "A" if pts >= 6 else "B" if pts >= 4 else "C"; d["pts"] = pts
