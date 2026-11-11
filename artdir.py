@@ -275,8 +275,8 @@ def make_site(d, root, slug, direction, fallback):
     br["menu_is_illustrative"] = True
     br["menu_disclaimer"] = "This is a sales concept. Label the sample menu as illustrative and do not invent prices or claim items are verified."
     try:
-        html = gem([{"text": "BRIEF:\\n" + json.dumps(br, ensure_ascii=False)}],
-                   RULES + "\\nDESIGN DIRECTION: " + DIRS[direction])
+        html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}],
+                   RULES + "\nDESIGN DIRECTION: " + DIRS[direction])
         open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
         issues, _screenshots = qa(root, slug)
         if not issues:
