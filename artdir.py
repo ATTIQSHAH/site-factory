@@ -2,7 +2,8 @@
 import base64, io, json, os, re, threading, time, functools, http.server, socketserver
 import requests
 from PIL import Image
-KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL", "gemini-2.5-flash")  # verify current model names and free limits
+KEY, MODEL = os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_DESIGN_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
+LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
 DIRS = {
  "editorial": "Editorial magazine: large high-contrast serif display, asymmetric 12-col grid, hairline rules, paper-white background, ink text, one restrained accent, generous whitespace, oversized pull-quote built only from real description text.",
  "dark_luxe": "Dark luxury: near-black, brass/gold accent, small wide-spaced uppercase labels, full-bleed photography, slow fades, centered formal composition, thin gold borders.",
@@ -34,12 +35,83 @@ HARD RULES
 - Follow the DESIGN DIRECTION strictly; compose a layout and section order that is distinct to this direction. Derive colours from the direction and the supplied dominant colours.
 Return ONLY the complete HTML document, no markdown fences."""
 def gem(parts, system=None, js=False):
-    if not KEY: raise RuntimeError("no GEMINI_API_KEY")
-    body = {"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": 30000, **({"response_mime_type": "application/json"} if js else {})}}
-    if system: body["systemInstruction"] = {"parts": [{"text": system}]}
-    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=240).json()
-    time.sleep(5); t = r["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(t) if js else re.sub(r"^```(?:html)?\s*|\s*```$", "", t.strip())
+    """Generate with Gemini first, then configured OpenAI-compatible providers."""
+    global LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL
+    errors = []
+    if KEY:
+        body = {"contents": [{"parts": parts}], "generationConfig": {
+            "maxOutputTokens": 30000,
+            **({"responseMimeType": "application/json"} if js else {})
+        }}
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
+        try:
+            response = None
+            for attempt in range(3):
+                response = requests.post(
+                    url, headers={"x-goog-api-key": KEY}, json=body, timeout=240
+                )
+                if response.status_code == 429:
+                    try:
+                        error_payload = response.json()
+                    except Exception:
+                        error_payload = {}
+                    message = str(error_payload.get("error", {}).get("message") or response.text or "rate limited")
+                    if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                        raise RuntimeError(f"Gemini HTTP 429: {message[:250]}")
+                if response.status_code == 429 or 500 <= response.status_code < 600:
+                    if attempt < 2:
+                        try:
+                            delay = float(response.headers.get("Retry-After", ""))
+                        except (TypeError, ValueError):
+                            delay = 2 ** (attempt + 1)
+                        time.sleep(min(max(delay, 2 ** (attempt + 1)), 12))
+                        continue
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+                elif not getattr(response, "ok", True):
+                    raise RuntimeError(f"Gemini HTTP {response.status_code}: {response.text[:250]}")
+                break
+            payload = response.json()
+            candidates = payload.get("candidates") or []
+            if not candidates:
+                raise RuntimeError("Gemini returned no candidate: " + json.dumps(payload.get("promptFeedback", payload.get("error", {})))[:250])
+            text = next(
+                (part.get("text") for part in candidates[0].get("content", {}).get("parts", [])
+                 if isinstance(part.get("text"), str)), ""
+            )
+            if not text.strip():
+                raise RuntimeError("Gemini returned empty content")
+            LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "gemini", MODEL
+            print(f"AI design provider selected: gemini / {MODEL}", flush=True)
+            return json.loads(text) if js else re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip())
+        except Exception as exc:
+            errors.append("Gemini: " + str(exc)[:220])
+    else:
+        errors.append("Gemini: API key not configured")
+
+    # The AI design prompt is text-only, so use compatible text models as fallbacks.
+    try:
+        import provider_router
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        user_text = "\n".join(
+            str(part.get("text", "")) for part in parts if isinstance(part, dict)
+        )
+        messages.append({"role": "user", "content": user_text})
+        result = provider_router.chat_candidates("design", messages, max_tokens=12000, timeout=240)
+        text = result["content"]
+        LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = result["provider"], result["model"]
+        print(f"AI design provider selected: {LAST_DESIGN_PROVIDER} / {LAST_DESIGN_MODEL}", flush=True)
+        if js:
+            return json.loads(re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I))
+        return re.sub(r"^\x60{3}(?:html)?\s*|\s*\x60{3}$", "", text.strip(), flags=re.I)
+    except Exception as exc:
+        errors.append("Fallback providers: " + str(exc)[:350])
+    raise RuntimeError("All AI design providers failed: " + " | ".join(errors))
+
 def brief(d, direction, folder):
     ph = d["photos"]; pal = palette(os.path.join(folder, ph[0])) if ph and not ph[0].startswith("/") else []
     return {"direction": direction, "direction_spec": DIRS[direction], "name": d["name"], "type": d["kind"], "city": d.get("city"), "about": d.get("about"), "phone": d["phone"], "email": d["email"], "address": d["address"],
@@ -70,20 +142,151 @@ def qa(root, slug, min_text=250):
             b.close()
     finally: s.shutdown()
     return issues, shots
-def critique(shots, name):
-    parts = [{"text": f"You are a ruthless art director reviewing a website demo for {name} that will be pitched to the owner. Image 1 is mobile, image 2 is desktop. Score 1-10 for: distinctive non-template look, polish and spacing, image crops and quality, text contrast, hierarchy. Penalise generic, cheap, empty or cluttered results. Return JSON {{\"score\": number, \"fixes\": [up to 5 specific concrete fixes]}}"}]
-    parts += [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(x).decode()}} for x in shots]
-    return gem(parts, js=True)
-def make_site(d, root, slug, direction, fallback):
-    """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
-    folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
+def _parse_visual_review(answer):
+    """Parse a strict JSON object, tolerating harmless provider wrappers."""
+    if isinstance(answer, list):
+        answer = "".join(
+            part.get("text", "") for part in answer
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        )
+    if not isinstance(answer, str) or not answer.strip():
+        raise ValueError("Provider returned no text content")
+    cleaned = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", answer.strip(), flags=re.I)
     try:
-        for i in range(3):
-            html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \
-                   gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
-            open(f"{folder}/index.html", "w", encoding="utf-8").write(html); issues, shots = qa(root, slug); c = critique(shots, d["name"]); sc = float(c.get("score", 0)) - 2 * len(issues); fixes = c.get("fixes", [])
-            if sc > best[0]: best = (sc, html)
-            if not issues and sc >= 8: break
-    except Exception as e: print("AI design failed:", str(e)[:100])
-    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1)}
-    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; return h, info
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Some free vision endpoints wrap JSON in prose. Extract the first
+        # complete object without accepting partial/truncated responses.
+        decoder = json.JSONDecoder()
+        result = None
+        for offset, char in enumerate(cleaned):
+            if char == "{":
+                try:
+                    result, _ = decoder.raw_decode(cleaned[offset:])
+                    break
+                except json.JSONDecodeError:
+                    continue
+        if result is None:
+            raise ValueError("Provider response did not contain a complete JSON object")
+    if not isinstance(result, dict) or "score" not in result:
+        raise ValueError("Visual review JSON must contain a score")
+    score = float(result["score"])
+    if not 1 <= score <= 10:
+        raise ValueError(f"Visual score outside 1-10 range: {score}")
+    fixes = result.get("fixes", [])
+    if not isinstance(fixes, list):
+        raise ValueError("Visual review fixes must be a JSON list")
+    fixes = [str(item).strip() for item in fixes if str(item).strip()]
+    return {"score": score, "fixes": fixes[:5]}
+
+
+def critique(shots, name):
+    """Review mobile and desktop screenshots: Gemini first, then all configured fallbacks."""
+    prompt = (
+        f"Review this website demo for {name}. Image 1 is mobile; image 2 is desktop. "
+        "Evaluate visual polish, distinctiveness, spacing, image crops, text contrast, "
+        "typography hierarchy, navigation and calls to action. Score from 1 (poor) "
+        "to 10 (excellent). List at most 5 concrete, visible fixes. Do not infer "
+        "problems that are not visible. Return exactly one JSON object with numeric "
+        'score and a fixes array, for example: {"score": 8, "fixes": ["Improve hero crop"]}.'
+    )
+    errors = []
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    if gemini_key:
+        gemini_model = (
+            os.getenv("GEMINI_VISUAL_MODEL")
+            or os.getenv("GEMINI_DESIGN_MODEL")
+            or os.getenv("GEMINI_MODEL")
+            or MODEL
+        )
+        gemini_parts = [{"text": prompt}]
+        for shot in shots:
+            gemini_parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": base64.b64encode(shot).decode("ascii"),
+                }
+            })
+        try:
+            response = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent",
+                headers={"x-goog-api-key": gemini_key},
+                json={
+                    "contents": [{"parts": gemini_parts}],
+                    "generationConfig": {
+                        "temperature": 0,
+                        "maxOutputTokens": 700,
+                        "responseMimeType": "application/json",
+                    },
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            candidates = payload.get("candidates") or []
+            parts_out = (candidates[0].get("content") or {}).get("parts") or []
+            answer = next(
+                (part.get("text") for part in parts_out if isinstance(part.get("text"), str)),
+                "",
+            )
+            parsed = _parse_visual_review(answer)
+            print(f"AI visual provider selected: gemini / {gemini_model}", flush=True)
+            return {**parsed, "provider": "gemini", "model": gemini_model}
+        except Exception as exc:
+            errors.append(f"Gemini/{gemini_model}: {str(exc)[:220]}")
+    else:
+        errors.append("Gemini: API key not configured")
+
+    # OpenAI-compatible vision content is accepted by OpenRouter and Groq.
+    # Cloudflare is attempted only when a specific visual model is configured.
+    parts = [{"type": "text", "text": prompt}]
+    for shot in shots:
+        encoded = base64.b64encode(shot).decode("ascii")
+        parts.append({
+            "type": "image_url",
+            "image_url": {"url": "data:image/jpeg;base64," + encoded},
+        })
+    try:
+        import provider_router
+        routed = provider_router.chat_candidates(
+            "visual",
+            [{"role": "user", "content": parts}],
+            max_tokens=700,
+            timeout=120,
+            validator=_parse_visual_review,
+        )
+        parsed = routed.get("validated") or _parse_visual_review(routed["content"])
+        return {
+            **parsed,
+            "provider": routed["provider"],
+            "model": routed["model"],
+        }
+    except Exception as exc:
+        errors.append("Fallback providers: " + str(exc)[:500])
+
+    raise RuntimeError("All visual-review providers failed: " + " | ".join(errors))
+
+def make_site(d, root, slug, direction, fallback):
+    """Generate one AI design attempt; final visual review is handled by review_site.py."""
+    global LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL
+    LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
+    folder = os.path.join(root, slug)
+    br = brief(d, direction, folder)
+    br["menu_is_illustrative"] = True
+    br["menu_disclaimer"] = "This is a sales concept. Label the sample menu as illustrative and do not invent prices or claim items are verified."
+    try:
+        html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}],
+                   RULES + "\nDESIGN DIRECTION: " + DIRS[direction])
+        open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
+        issues, _screenshots = qa(root, slug)
+        if not issues:
+            return html, {"theme": direction, "hero": "ai", "ai_score": "pending_visual_review",
+                          "ai_provider": LAST_DESIGN_PROVIDER, "ai_model": LAST_DESIGN_MODEL}
+        print("AI design browser QA failed; using deterministic template:", "; ".join(issues[:4]))
+    except Exception as exc:
+        print("AI design failed; using deterministic template:", str(exc)[:160])
+    html, info = fallback(d)
+    info["ai_score"] = 0
+    info["ai_provider"] = LAST_DESIGN_PROVIDER
+    info["ai_model"] = LAST_DESIGN_MODEL
+    return html, info
