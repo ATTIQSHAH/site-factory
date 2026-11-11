@@ -267,17 +267,26 @@ def critique(shots, name):
     raise RuntimeError("All visual-review providers failed: " + " | ".join(errors))
 
 def make_site(d, root, slug, direction, fallback):
-    """Return (html, info). Falls back to the fixed template if the AI path fails or scores low."""
+    """Generate one AI design attempt; final visual review is handled by review_site.py."""
     global LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL
     LAST_DESIGN_PROVIDER, LAST_DESIGN_MODEL = "", ""
-    folder = os.path.join(root, slug); br = brief(d, direction, folder); best = (-99, None); html = None; fixes = []; issues = []
+    folder = os.path.join(root, slug)
+    br = brief(d, direction, folder)
+    br["menu_is_illustrative"] = True
+    br["menu_disclaimer"] = "This is a sales concept. Label the sample menu as illustrative and do not invent prices or claim items are verified."
     try:
-        for i in range(3):
-            html = gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False)}], RULES + "\nDESIGN DIRECTION: " + DIRS[direction]) if i == 0 else \
-                   gem([{"text": "BRIEF:\n" + json.dumps(br, ensure_ascii=False) + "\n\nCURRENT HTML:\n" + html + "\n\nFix these problems and return the full improved HTML only:\n- " + "\n- ".join(issues + fixes)}], RULES)
-            open(f"{folder}/index.html", "w", encoding="utf-8").write(html); issues, shots = qa(root, slug); c = critique(shots, d["name"]); sc = float(c.get("score", 0)) - 2 * len(issues); fixes = c.get("fixes", [])
-            if sc > best[0]: best = (sc, html)
-            if not issues and sc >= 8: break
-    except Exception as e: print("AI design failed:", str(e)[:100])
-    if best[1] and best[0] >= 6: return best[1], {"theme": direction, "hero": "ai", "ai_score": round(best[0], 1), "ai_provider": LAST_DESIGN_PROVIDER, "ai_model": LAST_DESIGN_MODEL}
-    h, info = fallback(d); info["ai_score"] = round(best[0], 1) if best[1] else 0; return h, info
+        html = gem([{"text": "BRIEF:\\n" + json.dumps(br, ensure_ascii=False)}],
+                   RULES + "\\nDESIGN DIRECTION: " + DIRS[direction])
+        open(f"{folder}/index.html", "w", encoding="utf-8").write(html)
+        issues, _screenshots = qa(root, slug)
+        if not issues:
+            return html, {"theme": direction, "hero": "ai", "ai_score": "pending_visual_review",
+                          "ai_provider": LAST_DESIGN_PROVIDER, "ai_model": LAST_DESIGN_MODEL}
+        print("AI design browser QA failed; using deterministic template:", "; ".join(issues[:4]))
+    except Exception as exc:
+        print("AI design failed; using deterministic template:", str(exc)[:160])
+    html, info = fallback(d)
+    info["ai_score"] = 0
+    info["ai_provider"] = LAST_DESIGN_PROVIDER
+    info["ai_model"] = LAST_DESIGN_MODEL
+    return html, info
