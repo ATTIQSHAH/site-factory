@@ -97,6 +97,7 @@ def main():
     business = args.business or (soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "")
     tel = args.phone or ((soup.select_one('a[href^="tel:"]') or {}).get("href", "").replace("tel:", ""))
     quality = assess_html(html, business, tel)
+    visible = soup.get_text(" ", strip=True)
     menu_count = len(soup.select(".menu-card, .menu .it"))
     concept_note = soup.select_one(".concept-menu-disclaimer")
     concept_labelled = bool(concept_note and re.search(r"illustrative|concept preview", concept_note.get_text(" ", strip=True), re.I))
