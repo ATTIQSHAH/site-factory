@@ -53,6 +53,30 @@ def apply_concept_menu(document, business):
         card.append(title)
         layout.append(card)
         existing.add(name.casefold())
+    if soup.title is None:
+        title = soup.new_tag("title")
+        title.string = business.get("name", "Business") + " — Concept Preview"
+        (soup.head or soup).append(title)
+    if soup.find("h1") is None:
+        heading = soup.new_tag("h1")
+        heading.string = business.get("name", "Business")
+        (soup.body or soup).insert(0, heading)
+    elif business.get("name") and soup.find("h1").get_text(" ", strip=True).casefold() != business["name"].casefold():
+        soup.find("h1").string = business["name"]
+    description = soup.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    if description is None:
+        description = soup.new_tag("meta", attrs={"name": "description"})
+        (soup.head or soup).append(description)
+    if len(str(description.get("content", "")).strip()) < 60:
+        description["content"] = business.get("name", "This business") + " concept website preview featuring a sample menu and a polished brand presentation. Contact the business to confirm current details."
+    robots = soup.find("meta", attrs={"name": re.compile("^robots$", re.I)})
+    if robots is None:
+        robots = soup.new_tag("meta", attrs={"name": "robots", "content": "noindex,nofollow"})
+        (soup.head or soup).append(robots)
+    viewport = soup.find("meta", attrs={"name": re.compile("^viewport$", re.I)})
+    if viewport is None:
+        viewport = soup.new_tag("meta", attrs={"name": "viewport", "content": "width=device-width, initial-scale=1"})
+        (soup.head or soup).append(viewport)
     if soup.head:
         style = soup.new_tag("style")
         style.string = ".concept-menu-disclaimer{margin:1rem 0 1.5rem;padding:1rem 1.2rem;border:1px solid currentColor;border-radius:12px;font-size:.9rem;line-height:1.55;opacity:.86}"
