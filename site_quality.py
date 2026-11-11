@@ -70,7 +70,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     story={x.get("src") for x in soup.select("#about img,#story img,.story-photo-frame img") if x.get("src")}
     if hero.intersection(story): fail(10,"hero image repeated in about/story section",True)
     if phone:
-        digits=re.sub(r"\D","",phone); page_digits=re.sub(r"\\D","",document or "")
+        digits=re.sub(r"\D","",phone); page_digits=re.sub(r"\D","",document or "")
         if len(digits)>=7 and digits[-7:] not in page_digits: fail(12,"provided business phone number missing")
         elif len(digits)>=7 and not soup.select_one('a[href^="tel:"]'): fail(8,"provided business phone lacks click-to-call link")
     ids={x.get("id") for x in soup.find_all(id=True)}
