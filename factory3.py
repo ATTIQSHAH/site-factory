@@ -13,6 +13,21 @@ BASE, MAXN = os.getenv("BASE_URL", "").rstrip("/"), int(os.getenv("MAX_PER_RUN",
 BAD = re.compile(r"^(add|make it|extra|sub|substitute|no |with |choice of|side of)\b", re.I)
 DAY = r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*"
 
+CONCEPT_MENUS = {
+    "coffee": [("Coffee & Espresso", ["Espresso", "Americano", "Cappuccino", "Vanilla Latte", "Flat White", "Cold Brew"]), ("Bakery & Treats", ["Butter Croissant", "Chocolate Croissant", "Blueberry Muffin", "Cinnamon Roll"])],
+    "cafe": [("Breakfast & Brunch", ["Avocado Toast", "Buttermilk Pancakes", "Breakfast Sandwich", "Seasonal Yogurt Bowl"]), ("Cafe Favorites", ["Grilled Chicken Sandwich", "Garden Salad", "Tomato Soup", "Turkey & Swiss Panini"]), ("Coffee & Sweets", ["Iced Latte", "Cold Brew", "New York Cheesecake"])],
+    "bakery": [("Bakery Favorites", ["Butter Croissant", "Pain au Chocolat", "Cinnamon Roll", "Sourdough Loaf"]), ("Cakes & Cookies", ["Chocolate Layer Cake", "Vanilla Celebration Cake", "Chocolate Chip Cookie", "Brownie"]), ("Drinks", ["Drip Coffee", "Iced Latte"])],
+    "fastfood": [("Burgers & Sandwiches", ["Classic Smash Burger", "Double Cheeseburger", "Crispy Chicken Sandwich", "Veggie Burger"]), ("Sides", ["Seasoned Fries", "Onion Rings", "Chicken Tenders"]), ("Drinks", ["House Lemonade", "Iced Tea", "Soft Drink"])],
+    "grill": [("From the Grill", ["Grilled Chicken Plate", "Smoky BBQ Brisket", "Classic Cheeseburger", "Grilled Vegetable Plate"]), ("Starters & Sides", ["Crispy Pickles", "Loaded Fries", "House Slaw", "Mac & Cheese"]), ("Something Sweet", ["Chocolate Brownie", "Seasonal Cobbler"])],
+    "restaurant": [("Starters", ["Roasted Tomato Soup", "Crispy Calamari", "Seasonal Garden Salad"]), ("Mains", ["Herb-Roasted Chicken", "Pan-Seared Salmon", "Wild Mushroom Pasta", "Grilled Vegetable Plate"]), ("Desserts & Drinks", ["Chocolate Tart", "Vanilla Cheesecake", "House Lemonade"])],
+}
+
+def concept_menu(niche_kind):
+    """Build a deterministic, unpriced sample menu for a visual sales concept."""
+    groups = CONCEPT_MENUS.get(niche_kind, CONCEPT_MENUS["restaurant"])
+    return [{"section": section, "name": name, "desc": "", "price": "", "is_illustrative": True}
+            for section, names in groups for name in names]
+
 def about_from_soup(soup):
     """Extract a source-authored business paragraph while rejecting contact details."""
     candidates = []
@@ -355,10 +370,11 @@ def process(r, folder):
     for node in structured:
         value = node.get("@type", [])
         schema_types.extend(value if isinstance(value, list) else [value])
-    addr, city = address_of(biz, text, soup); items, menu_url, msrc = get_menu(soup, base)
-    items = suppress_ambiguous_menu_prices(items)
+    addr, city = address_of(biz, text, soup)
     title = soup.title.get_text(" ", strip=True) if soup.title else ""
-    niche_kind, q, classification = classify_business(name, title, about, headings, items, schema_types)
+    # Classify from public website identity, not menu extraction. This is a sales concept.
+    niche_kind, q, classification = classify_business(name, title, about, headings, [], schema_types)
+    items, menu_url, msrc = concept_menu(niche_kind), None, "illustrative_concept"
     kind = {"cafe": "coffee", "fastfood": "grill"}.get(niche_kind, niche_kind)
     if os.getenv("DESIGN_MODE") == "library" and artdir.KEY: kind = library.classify(name, about, items, kind)
     lg = biz.get("logo"); lg = lg.get("url") if isinstance(lg, dict) else lg
@@ -412,7 +428,7 @@ def main(src):
         try:
             d, info, msrc, own, qa, html = process(r, f"{OUT}/{s}"); perf, seo, iss, fix = audit(r["Website"], get(r["Website"]).text)
             res.update({"fetch_status": "ok", "template": d["kind"], "theme": info["theme"], "hero_style": info["hero"], "site_path": f"/{s}/", "site_url": f"{BASE}/{s}/" if BASE else "", "audit_perf": perf, "audit_seo": seo,
-                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium redesign with real photos and clear menu"]), "menu_source": msrc, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "ai_provider": info.get("ai_provider", ""), "ai_model": info.get("ai_model", ""), "template_id": info.get("template_id", ""), "template_status": info.get("template_status", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
+                        "audit_issues": " | ".join(iss), "improvements_made": " | ".join(fix + ["Premium branded concept website with illustrative sample menu"]), "menu_source": msrc, "menu_is_illustrative": True, "own_photos": own, "logo_found": bool(d["logo"]), "address_found": bool(d["address"]), "qa_flag": qa, "ai_score": info.get("ai_score", ""), "ai_provider": info.get("ai_provider", ""), "ai_model": info.get("ai_model", ""), "template_id": info.get("template_id", ""), "template_status": info.get("template_status", ""), "pitch_grade": d["grade"], "pitch_points": d["pts"]})
         except Exception as ex: res.update({"fetch_status": f"failed: {str(ex)[:80]}", "qa_flag": "needs manual build"})
         res.update({"review_status": "pending", "email_status": "", "batch": str(n_b), "live_status": ""}); done[r["Website"]] = res; batch.append(res); print(name, res["fetch_status"], res.get("qa_flag")); time.sleep(2)
     allr = list(done.values()); cols = list(dict.fromkeys(c for r in allr for c in r)); d = os.path.dirname(RES) or "."; os.makedirs(d, exist_ok=True)
