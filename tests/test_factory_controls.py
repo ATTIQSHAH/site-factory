@@ -1,5 +1,5 @@
 import unittest
-from factory3 import select_leads, concept_menu
+from factory3 import select_leads, concept_menu, apply_concept_menu
 
 
 class LeadTargetingTests(unittest.TestCase):
@@ -9,6 +9,19 @@ class LeadTargetingTests(unittest.TestCase):
         self.assertTrue(all(item["is_illustrative"] and item["price"] == "" for item in coffee))
         self.assertTrue(any("Latte" in item["name"] or "Espresso" in item["name"] for item in coffee))
         self.assertEqual(coffee, concept_menu("coffee"))
+
+    def test_existing_ai_menu_is_reused_instead_of_duplicated(self):
+        names = ["Butter Croissant", "Pain au Chocolat", "Cinnamon Roll", "Sourdough Loaf", "Chocolate Layer Cake"]
+        cards = "".join(f'<article class="menu-card"><h3>{name}</h3></article>' for name in names)
+        html = f'<html><head></head><body><section class="menu"><div class="menu-cards">{cards}</div></section></body></html>'
+        business = {"name": "Fluff Bake Bar", "menu": [{"name": name} for name in names]}
+        result = apply_concept_menu(html, business)
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(result, "html.parser")
+        self.assertEqual(len(soup.select("#menu")), 1)
+        self.assertEqual(len(soup.select(".menu-card")), len(names))
+        self.assertEqual(len(soup.select(".concept-menu-disclaimer")), 1)
+        self.assertFalse(soup.select_one("#menu h2") and soup.select_one("#menu h2").get_text(strip=True) == "Sample menu")
 
     def setUp(self):
         self.rows = [
