@@ -43,7 +43,7 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
         node=card.select_one(".menu-item-title,h3,h4,.it div span:first-child")
         if node: names.append(re.sub(r"[^a-z0-9]+"," ",node.get_text(" ",strip=True).lower()).strip())
     counts=Counter(x for x in names if x)
-    if any(n>1 for n in counts.values()): fail(15,"sample menu contains duplicate item names",True)
+    if any(n>1 for n in counts.values()): fail(15,"menu contains duplicate product names",True)
     note=soup.select_one(".concept-menu-disclaimer")
     note_text=note.get_text(" ",strip=True).lower() if note else ""
     labelled=bool(note and ("illustrative" in note_text or "concept preview" in note_text))
