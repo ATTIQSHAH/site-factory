@@ -1,8 +1,15 @@
 import unittest
-from factory3 import select_leads
+from factory3 import select_leads, concept_menu
 
 
 class LeadTargetingTests(unittest.TestCase):
+    def test_concept_menu_is_deterministic_unpriced_and_niche_appropriate(self):
+        coffee = concept_menu("coffee")
+        self.assertGreaterEqual(len(coffee), 5)
+        self.assertTrue(all(item["is_illustrative"] and item["price"] == "" for item in coffee))
+        self.assertTrue(any("Latte" in item["name"] or "Espresso" in item["name"] for item in coffee))
+        self.assertEqual(coffee, concept_menu("coffee"))
+
     def setUp(self):
         self.rows = [
             {"Name": "Copper Creek Restaurant", "Website": "https://coppercreek.example/"},
