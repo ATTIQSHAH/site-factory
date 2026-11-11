@@ -173,6 +173,30 @@ def build3(d):
     rep.update({"HERO_NOTE": hero_note, "STORY_PHOTO": story_photo_markup, "MENU_INTRO": E(menu_intro), "MAP_FRAME": map_frame})
     for k, v in rep.items(): t = t.replace("{{%s}}" % k, v)
     parsed = BeautifulSoup(t, "html.parser")
+    # Clearly distinguish concept menu ideas from verified business offerings.
+    menu_section = parsed.find(id="menu")
+    if d.get("menu") and menu_section:
+        note = parsed.new_tag("div", attrs={"class": "concept-menu-disclaimer", "role": "note"})
+        note.string = "Concept preview — these are illustrative menu ideas, not a confirmed current menu. Final offerings and prices should be confirmed with the business."
+        menu_section.insert(0, note)
+    elif d.get("menu"):
+        body = parsed.body or parsed
+        menu_section = parsed.new_tag("section", id="menu")
+        heading = parsed.new_tag("h2")
+        heading.string = "Sample menu"
+        menu_section.append(heading)
+        note = parsed.new_tag("p", attrs={"class": "concept-menu-disclaimer", "role": "note"})
+        note.string = "Concept preview — illustrative menu ideas only. Confirm actual offerings and prices with the business."
+        menu_section.append(note)
+        for item in d.get("menu", []):
+            row = parsed.new_tag("p")
+            row.string = item.get("name", "")
+            menu_section.append(row)
+        body.append(menu_section)
+    if d.get("menu"):
+        style = parsed.new_tag("style")
+        style.string = ".concept-menu-disclaimer{margin:1rem 0 1.5rem;padding:1rem 1.2rem;border:1px solid currentColor;border-radius:12px;font-size:.9rem;line-height:1.55;opacity:.86}"
+        (parsed.head or parsed).append(style)
     ids = {node.get("id") for node in parsed.find_all(id=True)}
     for anchor in parsed.find_all("a", href=True):
         if anchor.get("href") == "#story" and "story" not in ids and "about" in ids:
@@ -193,7 +217,7 @@ def build3(d):
         parsed.head.append(description)
     description_content = str(description.get("content", "")).strip()
     if len(description_content) < 60:
-        description_content = short
+        description_content = (short + " Explore this concept preview with a sample menu and essential business information.").strip()
     description.attrs = {"name": "description", "content": description_content}
     robots = parsed.find("meta", attrs={"name": re.compile("^robots$", re.I)})
     if robots is None:
