@@ -49,6 +49,22 @@ def assess_html(document, business_name="", phone="", require_noindex=True):
     labelled=bool(note and ("illustrative" in note_text or "concept preview" in note_text))
     if len(cards)<5: fail(18,"sample menu has fewer than five visible items",True)
     if not labelled: fail(18,"sample menu is not clearly labelled as illustrative concept content",True)
+    # Preserve visual/content regression guards independent of menu provenance.
+    headings = [re.sub(r"[^a-z0-9]+", " ", x.get_text(" ", strip=True).lower()).strip()
+                for x in soup.select(".menu-section-title, .menu-group-title")]
+    if any(x and x in names for x in headings):
+        fail(10, "menu heading repeats a product name", True)
+    prices = [x.get_text(" ", strip=True) for x in soup.select(".menu-item-price-tag, .it div span:last-child")
+              if x.get_text(" ", strip=True)]
+    price_counts = Counter(prices)
+    if len(prices) >= 3:
+        value, count = price_counts.most_common(1)[0]
+        if value and count >= 3 and count / len(prices) >= 0.6:
+            fail(12, "menu prices suspiciously repeat across products", True)
+    for section in soup.select("#about, #story, .about-section, .story-section"):
+        paragraphs = [p.get_text(" ", strip=True) for p in section.select(".story-copy, .story-content p, .about-copy, .about-content p")]
+        if not any(len(p) >= 80 for p in paragraphs) and section.select(".fact, .facts, address, .visit-address"):
+            fail(10, "about section has contact facts but no business story", True)
     if any(not x.get("src","").strip() for x in soup.find_all("img")): fail(5,"image missing source")
     hero={x.get("src") for x in soup.select(".hero img,.bento-img-frame img") if x.get("src")}
     story={x.get("src") for x in soup.select("#about img,#story img,.story-photo-frame img") if x.get("src")}
